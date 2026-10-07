@@ -4,6 +4,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { CyberBackground } from '@/components/CyberBackground';
+import { BookingCalendar } from '@/components/BookingCalendar';
+import { MatchBoard } from '@/components/MatchBoard';
+import { TournamentsView } from '@/components/TournamentsView';
+import { AdminPanel } from '@/components/AdminPanel';
+import { Profile, Cabin, SlotRequest, MatchRequest, Tournament, Registration } from '@/types';
 import {
   Menu,
   X,
@@ -24,8 +29,68 @@ import {
   Zap,
   ShieldCheck,
   Flame,
-  Volume2,
+  Calendar,
+  Shield,
+  User,
+  ChevronDown,
+  Check,
+  LogIn,
+  LogOut,
+  RefreshCw,
+  Bell,
+  Wifi,
+  Cpu,
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+
+function GoogleIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24">
+      <path
+        fill="#4285F4"
+        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+      />
+    </svg>
+  );
+}
+
+function SteamIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M11.979 0C5.669 0 .506 4.908.031 11.121l6.634 2.742c.563-.393 1.248-.627 1.99-.627.129 0 .256.008.381.022l3.053-4.423V8.8a4.992 4.992 0 0 1 4.985-4.985 4.992 4.992 0 0 1 4.985 4.985 4.992 4.992 0 0 1-4.985 4.985c-.068 0-.135-.004-.202-.008l-4.364 3.098c.01.109.018.22.018.332 0 2.298-1.865 4.163-4.163 4.163-2.046 0-3.743-1.479-4.093-3.428L.47 16.273C1.968 20.764 6.586 24 11.979 24c6.627 0 12-5.373 12-12S18.606 0 11.979 0zm-3.324 15.289a2.502 2.502 0 0 0-2.38 1.728l-1.92-.793c.273-1.076 1.056-1.947 2.089-2.315.347-.124.717-.193 1.102-.193 1.841 0 3.333 1.492 3.333 3.333s-1.492 3.333-3.333 3.333c-1.841 0-3.333-1.492-3.333-3.333 0-.158.016-.312.042-.464l1.966.812a2.497 2.497 0 0 0 2.434-.099 2.501 2.501 0 0 0 1.076-2.054 2.5 2.5 0 0 0-1.076-1.955zM17.075 6.315a2.492 2.492 0 1 0 0 4.985 2.492 2.492 0 0 0 0-4.985z" />
+    </svg>
+  );
+}
+
+function FaceitIcon({ className = 'w-5 h-5' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="#ff5500">
+      <path d="M23.999 2.204c-.115-.494-.6-.79-1.094-.672L1.134 6.812c-.521.127-.852.65-.733 1.17l3.659 15.932c.119.52.645.845 1.166.72l21.771-5.281c.494-.117.791-.606.673-1.1L23.999 2.204zm-4.708 6.574-5.918 8.04-2.82-5.59 8.738-2.45z" />
+    </svg>
+  );
+}
 
 interface BayDetails {
   tag: string;
@@ -90,10 +155,124 @@ export default function HomePage() {
   const [scrollProgress, setScrollProgress] = useState(0);
   const [selectedBay, setSelectedBay] = useState<BayDetails | null>(null);
 
+  // Arena Engine State
+  const [arenaTab, setArenaTab] = useState<string>('calendar');
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null);
+  const [cabins, setCabins] = useState<Cabin[]>([]);
+  const [bookings, setBookings] = useState<SlotRequest[]>([]);
+  const [matches, setMatches] = useState<MatchRequest[]>([]);
+  const [tournaments, setTournaments] = useState<Tournament[]>([]);
+  const [registrations, setRegistrations] = useState<Registration[]>([]);
+  const [isArenaLoading, setIsArenaLoading] = useState(true);
+
+  // Login Modal State (Google, Steam, FACEIT)
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [activeLoginProvider, setActiveLoginProvider] = useState<'google' | 'steam' | 'faceit'>('google');
+  const [googleEmail, setGoogleEmail] = useState('');
+  const [steamUsername, setSteamUsername] = useState('');
+  const [faceitNickname, setFaceitNickname] = useState('');
+  const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // Faceit lookup dialog state
+  const [customNickname, setCustomNickname] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [customError, setCustomError] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+
   const whatsappBaseUrl = 'https://wa.me/923062779481';
   const whatsappUrl = `${whatsappBaseUrl}?text=Hi%20OG%20Gaming%2C%20I%27d%20like%20to%20book%20a%20bay`;
 
-  // Track scroll progress for astonishing top neon indicator
+  // Fetch all initial Arena Engine data
+  const loadArenaData = async () => {
+    try {
+      const [bookingsRes, matchesRes, tourneysRes] = await Promise.all([
+        fetch('/api/bookings'),
+        fetch('/api/matches'),
+        fetch('/api/tournaments'),
+      ]);
+
+      const bookingsData = await bookingsRes.json();
+      const matchesData = await matchesRes.json();
+      const tourneysData = await tourneysRes.json();
+
+      if (bookingsData.cabins) setCabins(bookingsData.cabins);
+      if (bookingsData.bookings) setBookings(bookingsData.bookings);
+      if (matchesData.matches) setMatches(matchesData.matches);
+      if (tourneysData.tournaments) setTournaments(tourneysData.tournaments);
+      if (tourneysData.registrations) setRegistrations(tourneysData.registrations);
+
+      // Default demo profiles
+      const defaultProfiles: Profile[] = [
+        {
+          id: 'usr-s1mple',
+          faceit_id: 'faceit-s1mple',
+          faceit_nickname: 's1mple',
+          faceit_avatar_url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
+          faceit_elo: 3650,
+          faceit_level: 10,
+          faceit_game_id: 'cs2',
+          phone: '+92 301 9876543',
+          role: 'player',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          id: 'usr-casual',
+          faceit_id: 'faceit-casual',
+          faceit_nickname: 'CasualFragger',
+          faceit_avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80',
+          faceit_elo: 1120,
+          faceit_level: 4,
+          faceit_game_id: 'cs2',
+          role: 'player',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          id: 'usr-noob',
+          faceit_id: 'faceit-noob',
+          faceit_nickname: 'NoobMaster69',
+          faceit_avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+          faceit_elo: 750,
+          faceit_level: 2,
+          faceit_game_id: 'cs2',
+          role: 'player',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        {
+          id: 'usr-admin',
+          faceit_id: 'faceit-admin',
+          faceit_nickname: 'OG_Admin',
+          faceit_avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+          faceit_elo: 2200,
+          faceit_level: 8,
+          faceit_game_id: 'cs2',
+          phone: '+92 300 1234567',
+          role: 'admin',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ];
+
+      setProfiles(defaultProfiles);
+      // Keep initial currentProfile null so visitors see "Log In" in the header!
+    } catch (err) {
+      console.error('Error loading Arena data:', err);
+    } finally {
+      setIsArenaLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadArenaData();
+    const interval = setInterval(loadArenaData, 15000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Track scroll progress for neon progress bar
   useEffect(() => {
     const handleScroll = () => {
       const totalHeight = document.documentElement.scrollHeight - window.innerHeight;
@@ -106,7 +285,7 @@ export default function HomePage() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // IntersectionObserver for staggered scroll reveals across all elements
+  // IntersectionObserver for staggered scroll reveals
   useEffect(() => {
     const observer = new IntersectionObserver(
       (entries) => {
@@ -117,8 +296,8 @@ export default function HomePage() {
         });
       },
       {
-        threshold: 0.12,
-        rootMargin: '0px 0px -50px 0px',
+        threshold: 0.1,
+        rootMargin: '0px 0px -40px 0px',
       }
     );
 
@@ -128,25 +307,131 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, []);
 
+  // Google Login Handler
+  const handleGoogleLogin = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError('');
+    const rawNick = googleEmail.trim() ? googleEmail.split('@')[0] : 'Salman_Gamer';
+    const cleanNick = rawNick.replace(/[^a-zA-Z0-9_]/g, '');
+    const newProf: Profile = {
+      id: `usr-google-${Date.now()}`,
+      faceit_id: `google-${Date.now()}`,
+      faceit_nickname: `${cleanNick || 'OG_Gamer'} [Google]`,
+      faceit_avatar_url: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
+      faceit_elo: 1680,
+      faceit_level: 6,
+      faceit_game_id: 'cs2',
+      role: 'player',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    setCurrentProfile(newProf);
+    setIsLoginModalOpen(false);
+    setIsLoggingIn(false);
+  };
+
+  // Steam Login Handler
+  const handleSteamLogin = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setIsLoggingIn(true);
+    setLoginError('');
+    const nick = steamUsername.trim() || 'Steam_Striker';
+    const newProf: Profile = {
+      id: `usr-steam-${Date.now()}`,
+      faceit_id: `steam-${Date.now()}`,
+      faceit_nickname: `${nick} [Steam]`,
+      faceit_avatar_url: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80',
+      faceit_elo: 1950,
+      faceit_level: 8,
+      faceit_game_id: 'cs2',
+      role: 'player',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    setCurrentProfile(newProf);
+    setIsLoginModalOpen(false);
+    setIsLoggingIn(false);
+  };
+
+  // FACEIT Login Handler
+  const handleFaceitLogin = async (e?: React.FormEvent, directNick?: string) => {
+    if (e) e.preventDefault();
+    const nickToUse = directNick || faceitNickname.trim() || customNickname.trim();
+    if (!nickToUse) {
+      setLoginError('Please enter a FACEIT nickname');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    setLoginError('');
+
+    try {
+      const res = await fetch(`/api/faceit/lookup?nickname=${encodeURIComponent(nickToUse)}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setLoginError(data.error || 'Failed to verify FACEIT profile');
+        setIsLoggingIn(false);
+        return;
+      }
+
+      const p = data.player;
+      const newProf: Profile = {
+        id: `usr-faceit-${Date.now()}`,
+        faceit_id: p.id,
+        faceit_nickname: p.nickname,
+        faceit_avatar_url: p.avatar,
+        faceit_elo: p.elo,
+        faceit_level: p.level,
+        faceit_game_id: 'cs2',
+        role: 'player',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      setCurrentProfile(newProf);
+      setIsLoginModalOpen(false);
+      setDialogOpen(false);
+      setFaceitNickname('');
+      setCustomNickname('');
+    } catch (err) {
+      setLoginError('Network error checking FACEIT profile');
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleCustomLogin = async (e: React.FormEvent) => {
+    await handleFaceitLogin(e);
+  };
+
+  const getLevelClass = (level: number) => {
+    return `badge-lvl-${level}`;
+  };
+
+  const pendingApprovalsCount =
+    bookings.filter((b) => b.status === 'pending').length +
+    registrations.filter((r) => r.status === 'pending').length;
+
   return (
     <div className="min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)] selection:bg-[var(--orange)] selection:text-black relative">
-      {/* ASTONISHING TOP NEON SCROLL PROGRESS BAR */}
+      {/* TOP NEON SCROLL PROGRESS BAR */}
       <div
         className="fixed top-0 left-0 h-[3.5px] z-[100] bg-gradient-to-r from-[#ff6a12] via-[#ffb27a] to-[#ff6a12] transition-all duration-75 ease-out shadow-[0_0_12px_#ff6a12]"
         style={{ width: `${scrollProgress}%` }}
       />
 
-      {/* DYNAMIC MOVING BACKGROUND (CYBER GRID, FLOATING EMBERS & NEBULA ORBS) */}
+      {/* DYNAMIC MOVING BACKGROUND */}
       <CyberBackground />
 
       {/* HEADER / NAVIGATION */}
       <header className="site-header">
         <nav className="wrap">
-          {/* MUCH LARGER OG GAMING LOGO */}
+          {/* LARGER OG GAMING LOGO */}
           <Link href="/" className="brand group flex items-center gap-3 py-1">
             <div className="relative flex items-center">
-              {/* Backlight halo on hover */}
-              <div className="absolute -inset-3 rounded-full bg-gradient-to-r from-[#ff6a12]/20 via-[#ffb27a]/15 to-transparent blur-lg opacity-40 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="absolute -inset-3 rounded-full bg-gradient-to-r from-[#ff6a12]/25 via-[#ffb27a]/20 to-transparent blur-lg opacity-40 group-hover:opacity-100 transition-opacity duration-500" />
               <Image
                 src="/site_assets/logo_0.png"
                 alt="OG Gaming logo"
@@ -158,39 +443,91 @@ export default function HomePage() {
             </div>
           </Link>
 
-          {/* Desktop Navlinks */}
+          {/* Desktop Navlinks - Just Home and Arena Engine */}
           <div className="navlinks">
-            <a href="#bays" className="font-heading tracking-wide uppercase text-sm font-semibold">
-              Cabins &amp; Lounge
-            </a>
-            <a href="#specs" className="font-heading tracking-wide uppercase text-sm font-semibold">
-              Specs
-            </a>
-            <a href="#pricing" className="font-heading tracking-wide uppercase text-sm font-semibold">
-              Pricing
-            </a>
-            <a href="#location" className="font-heading tracking-wide uppercase text-sm font-semibold">
-              Location
-            </a>
-            <Link
-              href="/arena"
-              className="flex items-center gap-1.5 text-xs uppercase tracking-wider font-bold px-3 py-1.5 rounded bg-[#ff6a12]/15 text-[#ff6a12] border border-[#ff6a12]/35 hover:bg-[#ff6a12]/30 hover:border-[#ff6a12] transition-all shadow-[0_0_15px_rgba(255,106,18,0.15)] font-heading"
+            <a
+              href="#"
+              className="font-heading tracking-wide uppercase text-sm font-semibold hover:text-[var(--orange)] transition-colors"
             >
-              <Trophy className="w-3.5 h-3.5" />
-              <span>Arena Portal</span>
-            </Link>
+              Home
+            </a>
+            <a
+              href="#arena"
+              className="font-heading tracking-wide uppercase text-sm font-semibold text-[#ff6a12] hover:text-[#ffb27a] flex items-center gap-1.5 transition-colors"
+            >
+              <Trophy className="w-4 h-4 text-[#ff6a12]" />
+              <span>Arena Engine</span>
+            </a>
           </div>
 
           <div className="flex items-center gap-3">
-            <a
-              className="navcta"
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <MessageCircle className="w-4 h-4" />
-              <span>Book on WhatsApp</span>
-            </a>
+            {currentProfile ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-lg bg-[#151109] border border-[var(--line)] hover:border-[var(--orange)] transition-all cursor-pointer outline-none shadow-md">
+                  <span
+                    className={`w-6 h-6 rounded flex items-center justify-center font-black text-xs shadow-sm ${getLevelClass(
+                      currentProfile.faceit_level
+                    )}`}
+                  >
+                    {currentProfile.faceit_level}
+                  </span>
+                  <div className="flex flex-col text-left leading-tight hidden sm:flex">
+                    <span className="text-xs font-heading font-bold text-[var(--ink)]">
+                      {currentProfile.faceit_nickname}
+                    </span>
+                    <span className="text-[10px] text-[var(--ink-dim)]">
+                      {currentProfile.faceit_elo} ELO
+                    </span>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-[var(--ink-dim)]" />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-64 bg-[#151109] border-[var(--line)] text-[var(--ink)] shadow-2xl p-2">
+                  <div className="p-3 rounded-lg bg-[#0b0a08] border border-[var(--line)] mb-2">
+                    <div className="text-[10px] uppercase font-heading font-bold text-[var(--ink-dim)] tracking-wider">
+                      Logged in Player
+                    </div>
+                    <div className="text-sm font-heading font-bold text-[var(--orange)] flex items-center gap-1.5 mt-0.5">
+                      <span className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center ${getLevelClass(currentProfile.faceit_level)}`}>
+                        {currentProfile.faceit_level}
+                      </span>
+                      <span>{currentProfile.faceit_nickname}</span>
+                    </div>
+                    <div className="text-[11px] text-[var(--ink-dim)] font-heading mt-1">
+                      {currentProfile.faceit_elo} CS2 ELO • {currentProfile.role.toUpperCase()}
+                    </div>
+                  </div>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setLoginError('');
+                      setIsLoginModalOpen(true);
+                    }}
+                    className="cursor-pointer font-heading text-xs py-2 hover:bg-[#1d170f] rounded flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 text-[var(--orange)]" />
+                    <span>Switch Login (Google / Steam / FACEIT)</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator className="bg-[var(--line)] my-1" />
+                  <DropdownMenuItem
+                    onClick={() => setCurrentProfile(null)}
+                    className="cursor-pointer font-heading text-xs text-rose-400 py-2 hover:bg-[#1d170f] rounded flex items-center gap-2"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Log Out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <button
+                onClick={() => {
+                  setLoginError('');
+                  setIsLoginModalOpen(true);
+                }}
+                className="navcta cursor-pointer"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>Log In</span>
+              </button>
+            )}
 
             {/* Mobile menu toggle */}
             <button
@@ -207,44 +544,53 @@ export default function HomePage() {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-[var(--line)] bg-[#0b0a08]/98 backdrop-blur-xl px-6 py-5 flex flex-col gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
             <a
-              href="#bays"
+              href="#"
               onClick={() => setMobileMenuOpen(false)}
               className="text-base font-heading font-bold text-[var(--ink-dim)] hover:text-[var(--orange)] py-1"
             >
-              Cabins &amp; Lounge
+              Home
             </a>
             <a
-              href="#specs"
+              href="#arena"
               onClick={() => setMobileMenuOpen(false)}
-              className="text-base font-heading font-bold text-[var(--ink-dim)] hover:text-[var(--orange)] py-1"
+              className="text-base font-heading font-bold text-[var(--orange)] py-1 flex items-center justify-between"
             >
-              Specs
+              <span>Arena Engine</span>
+              <Trophy className="w-4 h-4" />
             </a>
-            <a
-              href="#pricing"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-base font-heading font-bold text-[var(--ink-dim)] hover:text-[var(--orange)] py-1"
-            >
-              Pricing
-            </a>
-            <a
-              href="#location"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-base font-heading font-bold text-[var(--ink-dim)] hover:text-[var(--orange)] py-1"
-            >
-              Location
-            </a>
-            <Link
-              href="/arena"
-              onClick={() => setMobileMenuOpen(false)}
-              className="flex items-center justify-between text-sm font-bold text-[#ff6a12] py-2 border-t border-[var(--line)] font-heading"
-            >
-              <span className="flex items-center gap-2">
-                <Trophy className="w-4 h-4" />
-                <span>CS2 Arena LAN Portal</span>
-              </span>
-              <ChevronRight className="w-4 h-4" />
-            </Link>
+            <div className="pt-2 border-t border-[var(--line)]">
+              {currentProfile ? (
+                <div className="flex items-center justify-between py-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-5 h-5 rounded text-[10px] font-black flex items-center justify-center ${getLevelClass(currentProfile.faceit_level)}`}>
+                      {currentProfile.faceit_level}
+                    </span>
+                    <span className="text-sm font-heading font-bold text-[var(--ink)]">{currentProfile.faceit_nickname}</span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCurrentProfile(null);
+                      setMobileMenuOpen(false);
+                    }}
+                    className="text-xs font-heading font-bold text-rose-400 hover:underline"
+                  >
+                    Log Out
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setLoginError('');
+                    setIsLoginModalOpen(true);
+                    setMobileMenuOpen(false);
+                  }}
+                  className="w-full py-2.5 px-4 rounded-lg bg-[var(--orange)] hover:bg-[var(--orange-soft)] text-black text-sm font-heading font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-md shadow-[var(--orange)]/25"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>Log In</span>
+                </button>
+              )}
+            </div>
           </div>
         )}
       </header>
@@ -270,27 +616,27 @@ export default function HomePage() {
             </p>
 
             <div className="actions reveal-init reveal-delay-3">
+              <a className="btn-primary" href="#arena">
+                <Trophy className="w-4 h-4 text-black" />
+                <span>Explore Arena Engine</span>
+              </a>
+
               <a
-                className="btn-primary"
+                className="btn-ghost"
                 href={whatsappUrl}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                <span>Book a bay on WhatsApp</span>
+                <span>Book on WhatsApp</span>
                 <ArrowRight className="w-4 h-4" />
               </a>
 
               <a className="btn-ghost" href="#pricing">
                 <span>See pricing</span>
               </a>
-
-              <Link className="btn-ghost" href="/arena">
-                <Trophy className="w-4 h-4 text-[var(--orange)]" />
-                <span>Arena Schedule &amp; System</span>
-              </Link>
             </div>
 
-            {/* Statline with Astonishing Numbers */}
+            {/* Statline */}
             <div className="statline reveal-init reveal-delay-4">
               <div className="group">
                 <div className="num group-hover:scale-105 transition-transform duration-200">15+</div>
@@ -312,6 +658,285 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* INTEGRATED ARENA ENGINE SECTION (Positioned right after Intro) */}
+        <section id="arena" className="py-10 border-b border-[var(--line)] bg-[#110d08]/85 relative">
+          <div className="wrap">
+            {/* Arena Header */}
+            <div className="sec-head reveal-init" style={{ paddingTop: 0, paddingBottom: 16 }}>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <div className="eyebrow flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-[var(--orange)]" />
+                    <span>Arena Engine</span>
+                  </div>
+                  <h2>Live LAN &amp; Booking Center</h2>
+                  <p>
+                    Check real-time CS2 cabin schedules, reserve slots, join clan matchmaking, and inspect FACEIT profiles directly on the floor.
+                  </p>
+                </div>
+
+                {/* Quick LAN Stats */}
+                <div className="flex items-center gap-2.5">
+                  <div className="px-3 py-1.5 rounded-lg bg-[#151109] border border-[var(--line)] flex items-center gap-2 text-xs">
+                    <Wifi className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>1ms LAN Ping</span>
+                  </div>
+                  <div className="px-3 py-1.5 rounded-lg bg-[#151109] border border-[var(--line)] flex items-center gap-2 text-xs">
+                    <Cpu className="w-3.5 h-3.5 text-[var(--orange)]" />
+                    <span>4 VIP Cabins</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Arena Interactive Controls Bar: Tab navigation + Profile Switcher */}
+            <div className="p-3 sm:p-4 rounded-xl bg-[#16120b] border border-[var(--line)] mb-5 flex flex-col md:flex-row md:items-center justify-between gap-3 reveal-init shadow-xl">
+              {/* Tab navigation buttons */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setArenaTab('calendar')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    arenaTab === 'calendar'
+                      ? 'bg-[var(--orange)] text-black shadow-lg shadow-[var(--orange)]/25'
+                      : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-[#1f170f]'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Cabin Booking</span>
+                </button>
+
+                <button
+                  onClick={() => setArenaTab('matches')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    arenaTab === 'matches'
+                      ? 'bg-[var(--orange)] text-black shadow-lg shadow-[var(--orange)]/25'
+                      : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-[#1f170f]'
+                  }`}
+                >
+                  <Swords className="w-3.5 h-3.5" />
+                  <span>5v5 Match Board</span>
+                </button>
+
+                <button
+                  onClick={() => setArenaTab('tournaments')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all flex items-center gap-2 cursor-pointer ${
+                    arenaTab === 'tournaments'
+                      ? 'bg-[var(--orange)] text-black shadow-lg shadow-[var(--orange)]/25'
+                      : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-[#1f170f]'
+                  }`}
+                >
+                  <Trophy className="w-3.5 h-3.5" />
+                  <span>LAN Cups</span>
+                </button>
+
+                <button
+                  onClick={() => setArenaTab('admin')}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all flex items-center gap-2 relative cursor-pointer ${
+                    arenaTab === 'admin'
+                      ? 'bg-[var(--orange)] text-black shadow-lg shadow-[var(--orange)]/25'
+                      : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-[#1f170f]'
+                  }`}
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Admin Panel</span>
+                  {pendingApprovalsCount > 0 && (
+                    <span className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center animate-pulse">
+                      {pendingApprovalsCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* Profile & FACEIT Switcher */}
+              {currentProfile && (
+                <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0b0a08] hover:bg-[#151109] border border-[var(--line)] transition-colors text-left cursor-pointer outline-none">
+                      <span
+                        className={`w-5 h-5 rounded flex items-center justify-center font-black text-[11px] shadow-sm ${getLevelClass(
+                          currentProfile.faceit_level
+                        )}`}
+                      >
+                        {currentProfile.faceit_level}
+                      </span>
+
+                      <div className="flex flex-col leading-tight">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-foreground font-heading">{currentProfile.faceit_nickname}</span>
+                          {currentProfile.role === 'admin' && (
+                            <span className="text-[9px] bg-red-500/20 text-red-400 px-1 py-0.2 rounded font-bold uppercase">
+                              Admin
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[10px] text-[var(--ink-dim)]">{currentProfile.faceit_elo} Elo • CS2</span>
+                      </div>
+
+                      <ChevronDown className="w-3 h-3 text-[var(--ink-dim)] ml-1" />
+                    </DropdownMenuTrigger>
+
+                    <DropdownMenuContent align="end" className="w-64 bg-[#151109] border-[var(--line)] shadow-2xl text-[var(--ink)]">
+                      <DropdownMenuLabel className="text-xs text-[var(--ink-dim)] uppercase font-bold tracking-wider font-heading">
+                        Switch Player Account (Demo Mode)
+                      </DropdownMenuLabel>
+                      <DropdownMenuSeparator className="bg-[var(--line)]" />
+
+                      {profiles.map((p) => (
+                        <DropdownMenuItem
+                          key={p.id}
+                          onClick={() => setCurrentProfile(p)}
+                          className="flex items-center justify-between cursor-pointer py-2 focus:bg-[#1d170f]"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span
+                              className={`w-5 h-5 rounded text-[11px] font-black flex items-center justify-center ${getLevelClass(
+                                p.faceit_level
+                              )}`}
+                            >
+                              {p.faceit_level}
+                            </span>
+                            <div>
+                              <div className="text-sm font-semibold flex items-center gap-1.5">
+                                {p.faceit_nickname}
+                                {p.role === 'admin' && (
+                                  <span className="text-[9px] bg-red-500/20 text-red-400 px-1 rounded">Admin</span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-[var(--ink-dim)]">{p.faceit_elo} Elo</div>
+                            </div>
+                          </div>
+                          {currentProfile.id === p.id && <Check className="w-4 h-4 text-[var(--orange)]" />}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Switch Login Button */}
+                  <button
+                    onClick={() => {
+                      setLoginError('');
+                      setIsLoginModalOpen(true);
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg border border-[var(--line)] hover:border-[var(--orange)] text-xs text-[var(--ink-dim)] hover:text-[var(--orange)] transition-colors flex items-center gap-1 font-heading cursor-pointer"
+                  >
+                    <LogIn className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Switch</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Arena Engine Live Content Area */}
+            {isArenaLoading ? (
+              <div className="p-12 rounded-xl bg-[#151109] border border-[var(--line)] flex flex-col items-center justify-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[var(--orange)] to-orange-400 flex items-center justify-center font-black text-black text-lg animate-pulse font-heading">
+                  OG
+                </div>
+                <span className="text-xs font-semibold tracking-wider text-[var(--ink-dim)] font-heading">
+                  LOADING ARENA LAN SESSIONS...
+                </span>
+              </div>
+            ) : !currentProfile ? (
+              <div className="p-8 sm:p-12 rounded-xl bg-[#151109] border border-[var(--line)] text-center flex flex-col items-center justify-center max-w-xl mx-auto space-y-3.5 shadow-2xl">
+                <div className="w-12 h-12 rounded-xl bg-[var(--orange)]/15 border border-[var(--orange)]/30 flex items-center justify-center text-[var(--orange)] shadow-lg shadow-[var(--orange)]/20">
+                  <LogIn className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-black text-xl text-[var(--ink)]">Log In to Access Arena Engine</h3>
+                  <p className="text-xs text-[var(--ink-dim)] mt-1 max-w-md mx-auto leading-relaxed">
+                    Sign in with Google, Steam, or FACEIT to reserve 240Hz PC bays, join 5v5 gathers, and enter Karachi LAN championships.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+                  <button
+                    onClick={() => {
+                      setActiveLoginProvider('google');
+                      setLoginError('');
+                      setIsLoginModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 rounded-lg bg-[#0b0a08] border border-[var(--line)] hover:border-[var(--orange)] text-xs font-heading font-bold text-[var(--ink)] flex items-center gap-2 transition-all hover:bg-[#1a140b] cursor-pointer"
+                  >
+                    <GoogleIcon className="w-3.5 h-3.5" />
+                    <span>Google</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveLoginProvider('steam');
+                      setLoginError('');
+                      setIsLoginModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 rounded-lg bg-[#0b0a08] border border-[var(--line)] hover:border-[var(--orange)] text-xs font-heading font-bold text-[var(--ink)] flex items-center gap-2 transition-all hover:bg-[#1a140b] cursor-pointer"
+                  >
+                    <SteamIcon className="w-3.5 h-3.5" />
+                    <span>Steam</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setActiveLoginProvider('faceit');
+                      setLoginError('');
+                      setIsLoginModalOpen(true);
+                    }}
+                    className="px-3.5 py-2 rounded-lg bg-[#0b0a08] border border-[var(--line)] hover:border-[var(--orange)] text-xs font-heading font-bold text-[var(--ink)] flex items-center gap-2 transition-all hover:bg-[#1a140b] cursor-pointer"
+                  >
+                    <FaceitIcon className="w-3.5 h-3.5" />
+                    <span>FACEIT</span>
+                  </button>
+                </div>
+                <div className="pt-1">
+                  <button
+                    onClick={() => {
+                      if (profiles.length > 0) setCurrentProfile(profiles[0]);
+                    }}
+                    className="text-[11px] font-heading font-bold text-[var(--orange)] hover:underline cursor-pointer"
+                  >
+                    or Continue as Guest (s1mple demo profile) &rarr;
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl bg-[#141009]/90 border border-[var(--line)] p-4 sm:p-5 shadow-2xl">
+                {arenaTab === 'calendar' && (
+                  <BookingCalendar
+                    cabins={cabins}
+                    bookings={bookings}
+                    currentProfile={currentProfile}
+                    onBookingCreated={(newB) => setBookings((prev) => [newB, ...prev])}
+                  />
+                )}
+
+                {arenaTab === 'matches' && (
+                  <MatchBoard
+                    matches={matches}
+                    cabins={cabins}
+                    currentProfile={currentProfile}
+                    onMatchUpdated={loadArenaData}
+                  />
+                )}
+
+                {arenaTab === 'tournaments' && (
+                  <TournamentsView
+                    tournaments={tournaments}
+                    registrations={registrations}
+                    currentProfile={currentProfile}
+                    onRegistrationCreated={loadArenaData}
+                  />
+                )}
+
+                {arenaTab === 'admin' && (
+                  <AdminPanel
+                    bookings={bookings}
+                    registrations={registrations}
+                    tournaments={tournaments}
+                    cabins={cabins}
+                    profiles={profiles}
+                    onDataRefresh={loadArenaData}
+                  />
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+
         {/* BAY DIRECTORY ("The floor") */}
         <section id="bays" className="bays">
           <div className="wrap">
@@ -326,7 +951,7 @@ export default function HomePage() {
               </p>
             </div>
 
-            <div className="bay-grid" style={{ marginTop: '34px' }}>
+            <div className="bay-grid" style={{ marginTop: '20px' }}>
               {BAYS_DATA.map((bay, idx) => (
                 <div
                   key={bay.tag}
@@ -351,9 +976,9 @@ export default function HomePage() {
                     )}
                   </div>
 
-                  <div className="desc">{bay.desc}</div>
+                  <div className="desc line-clamp-2 min-h-[36px]">{bay.desc}</div>
 
-                  <div className="mt-4 flex items-center justify-between">
+                  <div className="mt-3 flex items-center justify-between">
                     <span className="badge">
                       {bay.status === 'live' ? 'Live' : 'Coming soon'}
                     </span>
@@ -382,8 +1007,7 @@ export default function HomePage() {
               <h2>Built for serious play</h2>
             </div>
 
-            <div className="spec-cols" style={{ marginTop: '34px' }}>
-              {/* PC Cabins Specs */}
+            <div className="spec-cols" style={{ marginTop: '20px' }}>
               <div className="spec-col reveal-init reveal-delay-1 group">
                 <div className="flex items-center gap-2 mb-2">
                   <Monitor className="w-5 h-5 text-[var(--orange)] group-hover:scale-110 transition-transform" />
@@ -413,7 +1037,6 @@ export default function HomePage() {
                 </ul>
               </div>
 
-              {/* PS5 Lounge Specs */}
               <div className="spec-col reveal-init reveal-delay-2 group">
                 <div className="flex items-center gap-2 mb-2">
                   <Gamepad2 className="w-5 h-5 text-[var(--orange)] group-hover:scale-110 transition-transform" />
@@ -458,51 +1081,75 @@ export default function HomePage() {
               <p>Pay by the hour, or lock in a package and save. All prices in PKR.</p>
             </div>
 
-            <div className="price-cols">
-              {/* PC Gaming Pricing Card */}
-              <div className="price-col reveal-init reveal-delay-1 neon-border-pulse">
-                <h3>PC Gaming</h3>
-                <div className="rate">
-                  200<sup>/ PC per hour</sup>
+            <div className="price-cols" style={{ marginTop: '20px' }}>
+              <div className="price-col reveal-init reveal-delay-1 neon-border-pulse flex flex-col justify-between">
+                <div>
+                  <h3>PC Gaming</h3>
+                  <div className="rate">
+                    200<sup>/ PC per hour</sup>
+                  </div>
+                  <div className="pkg-grid">
+                    <div className="pkg group">
+                      <div className="h">3 hours</div>
+                      <div className="v group-hover:text-[var(--orange)] transition-colors">500 PKR</div>
+                    </div>
+                    <div className="pkg group">
+                      <div className="h">5 hours</div>
+                      <div className="v group-hover:text-[var(--orange)] transition-colors">800 PKR</div>
+                    </div>
+                    <div className="pkg group">
+                      <div className="h">10 hours</div>
+                      <div className="v group-hover:text-[var(--orange)] transition-colors">1,500 PKR</div>
+                    </div>
+                    <div className="pkg group">
+                      <div className="h">20 hours</div>
+                      <div className="v group-hover:text-[var(--orange)] transition-colors">2,500 PKR</div>
+                    </div>
+                  </div>
+                  <div className="price-note">Packages are per user. 240Hz MSI monitors &amp; RTX builds.</div>
                 </div>
-                <div className="pkg-grid">
-                  <div className="pkg group">
-                    <div className="h">3 hours</div>
-                    <div className="v group-hover:text-[var(--orange)] transition-colors">500 PKR</div>
-                  </div>
-                  <div className="pkg group">
-                    <div className="h">5 hours</div>
-                    <div className="v group-hover:text-[var(--orange)] transition-colors">800 PKR</div>
-                  </div>
-                  <div className="pkg group">
-                    <div className="h">10 hours</div>
-                    <div className="v group-hover:text-[var(--orange)] transition-colors">1,500 PKR</div>
-                  </div>
-                  <div className="pkg group">
-                    <div className="h">20 hours</div>
-                    <div className="v group-hover:text-[var(--orange)] transition-colors">2,500 PKR</div>
-                  </div>
+
+                <div className="mt-4 pt-3 border-t border-[var(--line)]">
+                  <a
+                    className="btn-ghost w-full justify-center py-2.5 text-xs font-heading font-bold"
+                    href="#arena"
+                  >
+                    <span>Reserve PC Bay in Arena</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </a>
                 </div>
-                <div className="price-note">Packages are per user.</div>
               </div>
 
-              {/* PS5 Lounge Pricing Card */}
               <div className="price-col reveal-init reveal-delay-2 neon-border-pulse flex flex-col justify-between">
                 <div>
                   <h3>PS5 Lounge</h3>
                   <div className="rate">
                     500<sup>/ hour</sup>
                   </div>
-                  <div className="price-note" style={{ marginTop: '22px' }}>
-                    PS5 with 2 controllers included.
-                    <br />
-                    +300 PKR for an extra controller, subject to availability.
+                  <div className="pkg-grid">
+                    <div className="pkg group">
+                      <div className="h">1 hour</div>
+                      <div className="v group-hover:text-[var(--orange)] transition-colors">500 PKR</div>
+                    </div>
+                    <div className="pkg group">
+                      <div className="h">2 hours (Duo)</div>
+                      <div className="v group-hover:text-[var(--orange)] transition-colors">950 PKR</div>
+                    </div>
+                    <div className="pkg group">
+                      <div className="h">3 hours (Squad)</div>
+                      <div className="v group-hover:text-[var(--orange)] transition-colors">1,400 PKR</div>
+                    </div>
+                    <div className="pkg group">
+                      <div className="h">Extra Controller</div>
+                      <div className="v group-hover:text-[var(--orange)] transition-colors">+300 PKR</div>
+                    </div>
                   </div>
+                  <div className="price-note">PS5 with 2 controllers included. Bean bags &amp; chilled AC.</div>
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-[var(--line)]">
+                <div className="mt-4 pt-3 border-t border-[var(--line)]">
                   <a
-                    className="btn-primary w-full justify-center shadow-lg shadow-[var(--orange)]/25"
+                    className="btn-primary w-full justify-center shadow-md shadow-[var(--orange)]/20 py-2.5 text-xs font-heading font-bold"
                     href={whatsappUrl}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -538,64 +1185,10 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* ARENA PLATFORM SPOTLIGHT */}
-        <section className="py-16 border-b border-[var(--line)] bg-[#120e08]/70 relative overflow-hidden">
-          <div className="wrap">
-            <div className="p-8 sm:p-10 rounded-xl bg-gradient-to-r from-[#17120a] to-[#1f170d] border border-[var(--line)] relative reveal-init shadow-2xl">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                <div className="max-w-xl">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#ff6a12]/15 text-[#ff6a12] border border-[#ff6a12]/30 text-xs font-bold font-heading mb-4 tracking-wider uppercase">
-                    <Trophy className="w-3.5 h-3.5" />
-                    <span>Competitive Arena Platform</span>
-                  </div>
-                  <h3 className="text-2xl sm:text-3xl font-heading font-black text-[var(--ink)] tracking-tight">
-                    CS2 Bootcamp Cabins &amp; Online Slot Reservations
-                  </h3>
-                  <p className="text-[var(--ink-dim)] text-sm sm:text-base mt-3 leading-relaxed">
-                    Check real-time cabin schedules, connect your FACEIT profile to verify ELO levels, join LAN tournaments, or challenge other clans in Bahadurabad.
-                  </p>
-                  <div className="flex flex-wrap items-center gap-4 mt-6 text-xs text-[var(--ink-dim)]">
-                    <span className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-                      <CheckCircle2 className="w-4 h-4" />
-                      Instant Conflict-Free Scheduling
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-[var(--orange)]" />
-                      FACEIT Level Sync
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-[var(--orange)]" />
-                      LAN Tournaments
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex flex-col sm:flex-row lg:flex-col gap-3 shrink-0">
-                  <Link
-                    href="/arena"
-                    className="btn-primary justify-center text-center shadow-lg shadow-[var(--orange)]/30"
-                  >
-                    <span>Launch Arena Platform</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Link>
-                  <a
-                    href="https://wa.me/923062779481?text=Hi%20OG%20Gaming%2C%20I%20want%20to%20inquire%20about%20LAN%20tournaments"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn-ghost justify-center text-center text-xs"
-                  >
-                    <span>Inquire Tournament Rules</span>
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* LOCATION SECTION */}
         <section id="location" className="location">
           <div className="wrap">
-            <div className="sec-head reveal-init" style={{ padding: '0 0 30px' }}>
+            <div className="sec-head reveal-init" style={{ padding: '0 0 18px' }}>
               <div className="eyebrow flex items-center gap-2">
                 <MapPin className="w-3.5 h-3.5" />
                 <span>Find us</span>
@@ -692,8 +1285,8 @@ export default function HomePage() {
               <a href="#bays">Cabins &amp; Lounge</a>
               <a href="#specs">Specs</a>
               <a href="#pricing">Pricing</a>
+              <a href="#arena">Arena Engine</a>
               <a href="#location">Location</a>
-              <Link href="/arena">Arena Portal</Link>
               <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
                 WhatsApp
               </a>
@@ -768,28 +1361,263 @@ export default function HomePage() {
             </div>
 
             {/* Action buttons */}
-            <div className="mt-6 pt-5 border-t border-[var(--line)] flex gap-3">
+            <div className="mt-6 pt-5 border-t border-[var(--line)] flex flex-col sm:flex-row gap-3">
               <a
                 href={`https://wa.me/923062779481?text=Hi%20OG%20Gaming%2C%20I%20would%20like%20to%20book%20${encodeURIComponent(
                   selectedBay.tag
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn-primary flex-1 justify-center text-sm py-3"
+                className="btn-primary justify-center text-sm py-3 flex-1"
               >
                 <MessageCircle className="w-4 h-4" />
-                <span>Book This Bay on WhatsApp</span>
+                <span>Book on WhatsApp</span>
               </a>
-              <button
+
+              <a
+                href="#arena"
                 onClick={() => setSelectedBay(null)}
-                className="btn-ghost text-sm py-3 px-4"
+                className="btn-ghost justify-center text-sm py-3"
               >
-                Close
-              </button>
+                <span>View Arena Calendar</span>
+              </a>
             </div>
           </div>
         </div>
       )}
+
+      {/* AUTHENTICATION MODAL: GOOGLE, STEAM, FACEIT */}
+      <Dialog open={isLoginModalOpen} onOpenChange={setIsLoginModalOpen}>
+        <DialogContent className="bg-[#151109] border-[var(--line)] text-[var(--ink)] sm:max-w-lg shadow-2xl p-6">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2.5 font-heading text-2xl text-[var(--ink)]">
+              <div className="w-8 h-8 rounded-lg bg-[var(--orange)]/15 border border-[var(--orange)]/30 flex items-center justify-center text-[var(--orange)] shadow-md shadow-[var(--orange)]/20">
+                <LogIn className="w-4 h-4" />
+              </div>
+              <span>OG Arena Login</span>
+            </DialogTitle>
+          </DialogHeader>
+
+          <p className="text-xs text-[var(--ink-dim)] -mt-2">
+            Select your platform to log in. Unlock PC bay reservations, 5v5 scrim matchmaking, and Karachi LAN cups.
+          </p>
+
+          {/* Provider Tabs */}
+          <div className="grid grid-cols-3 gap-2 p-1 rounded-lg bg-[#0b0a08] border border-[var(--line)] mt-1">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveLoginProvider('google');
+                setLoginError('');
+              }}
+              className={`py-2 px-3 rounded-md text-xs font-heading font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                activeLoginProvider === 'google'
+                  ? 'bg-[var(--orange)] text-black shadow-md shadow-[var(--orange)]/25'
+                  : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-[#151109]'
+              }`}
+            >
+              <GoogleIcon className="w-4 h-4" />
+              <span>Google</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveLoginProvider('steam');
+                setLoginError('');
+              }}
+              className={`py-2 px-3 rounded-md text-xs font-heading font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                activeLoginProvider === 'steam'
+                  ? 'bg-[var(--orange)] text-black shadow-md shadow-[var(--orange)]/25'
+                  : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-[#151109]'
+              }`}
+            >
+              <SteamIcon className="w-4 h-4" />
+              <span>Steam</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setActiveLoginProvider('faceit');
+                setLoginError('');
+              }}
+              className={`py-2 px-3 rounded-md text-xs font-heading font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                activeLoginProvider === 'faceit'
+                  ? 'bg-[var(--orange)] text-black shadow-md shadow-[var(--orange)]/25'
+                  : 'text-[var(--ink-dim)] hover:text-[var(--ink)] hover:bg-[#151109]'
+              }`}
+            >
+              <FaceitIcon className="w-4 h-4" />
+              <span>FACEIT</span>
+            </button>
+          </div>
+
+          {/* Provider 1: Google */}
+          {activeLoginProvider === 'google' && (
+            <form onSubmit={handleGoogleLogin} className="space-y-4 pt-1">
+              <div className="p-3.5 rounded-lg bg-[#0b0a08] border border-[var(--line)] space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <GoogleIcon className="w-4 h-4" />
+                  <span className="font-heading font-bold text-sm text-[var(--ink)]">Google Sign In</span>
+                </div>
+                <p className="text-[11px] text-[var(--ink-dim)] leading-relaxed">
+                  Fast 1-click authentication. Synchronizes your bay reservations, notifications, and WhatsApp contact details.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-heading text-[var(--ink-dim)] uppercase block mb-1">
+                  Google Email or Gamer Tag (Optional)
+                </label>
+                <Input
+                  placeholder="e.g. salman.gaming@gmail.com"
+                  value={googleEmail}
+                  onChange={(e) => setGoogleEmail(e.target.value)}
+                  className="bg-[#0b0a08] border-[var(--line)] font-heading text-[var(--ink)] text-sm"
+                />
+              </div>
+
+              {loginError && <p className="text-xs text-rose-400 font-heading">{loginError}</p>}
+
+              <div className="pt-2 flex gap-3">
+                <Button
+                  type="submit"
+                  disabled={isLoggingIn}
+                  className="flex-1 bg-[var(--orange)] hover:bg-[var(--orange-soft)] text-black font-heading font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[var(--orange)]/20"
+                >
+                  <GoogleIcon className="w-4 h-4" />
+                  <span>{isLoggingIn ? 'Connecting...' : 'Continue with Google'}</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsLoginModalOpen(false)}
+                  className="border-[var(--line)] text-[var(--ink)] hover:bg-[#1a140b] font-heading cursor-pointer"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Provider 2: Steam */}
+          {activeLoginProvider === 'steam' && (
+            <form onSubmit={handleSteamLogin} className="space-y-4 pt-1">
+              <div className="p-3.5 rounded-lg bg-[#0b0a08] border border-[var(--line)] space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <SteamIcon className="w-4 h-4 text-white" />
+                  <span className="font-heading font-bold text-sm text-[var(--ink)]">Steam Community &amp; CS2 OpenID</span>
+                </div>
+                <p className="text-[11px] text-[var(--ink-dim)] leading-relaxed">
+                  Link your Counter-Strike 2 Steam profile to display verified VAC standing, custom Steam avatar, and inventory badges.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-heading text-[var(--ink-dim)] uppercase block mb-1">
+                  Steam Persona / Nickname / SteamID64
+                </label>
+                <Input
+                  placeholder="e.g. SteamGamer_99 or Karachi_Sniper"
+                  value={steamUsername}
+                  onChange={(e) => setSteamUsername(e.target.value)}
+                  className="bg-[#0b0a08] border-[var(--line)] font-heading text-[var(--ink)] text-sm"
+                />
+              </div>
+
+              {loginError && <p className="text-xs text-rose-400 font-heading">{loginError}</p>}
+
+              <div className="pt-2 flex gap-3">
+                <Button
+                  type="submit"
+                  disabled={isLoggingIn}
+                  className="flex-1 bg-[var(--orange)] hover:bg-[var(--orange-soft)] text-black font-heading font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[var(--orange)]/20"
+                >
+                  <SteamIcon className="w-4 h-4" />
+                  <span>{isLoggingIn ? 'Connecting...' : 'Sign in through Steam'}</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsLoginModalOpen(false)}
+                  className="border-[var(--line)] text-[var(--ink)] hover:bg-[#1a140b] font-heading cursor-pointer"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+
+          {/* Provider 3: FACEIT */}
+          {activeLoginProvider === 'faceit' && (
+            <form onSubmit={(e) => handleFaceitLogin(e)} className="space-y-4 pt-1">
+              <div className="p-3.5 rounded-lg bg-[#0b0a08] border border-[var(--line)] space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <FaceitIcon className="w-4 h-4" />
+                  <span className="font-heading font-bold text-sm text-[var(--ink)]">FACEIT Competitive CS2 Data API</span>
+                </div>
+                <p className="text-[11px] text-[var(--ink-dim)] leading-relaxed">
+                  Pulls official FACEIT CS2 Level (1–10) badge and live Elo rating for LAN seeding and 5v5 gather restrictions.
+                </p>
+              </div>
+
+              <div>
+                <label className="text-xs font-heading text-[var(--ink-dim)] uppercase block mb-1">
+                  FACEIT Nickname
+                </label>
+                <Input
+                  placeholder="e.g. s1mple, m0NESY, or your exact tag"
+                  value={faceitNickname}
+                  onChange={(e) => setFaceitNickname(e.target.value)}
+                  className="bg-[#0b0a08] border-[var(--line)] font-heading text-[var(--ink)] text-sm"
+                />
+              </div>
+
+              {/* Quick Picks */}
+              <div>
+                <div className="text-[10px] font-heading uppercase text-[var(--ink-dim)] tracking-wider mb-1.5">
+                  Or Test with Community Legends:
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {['s1mple', 'm0NESY', 'NiKo', 'donk'].map((tag) => (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => handleFaceitLogin(undefined, tag)}
+                      className="px-2.5 py-1 rounded bg-[#0b0a08] hover:bg-[#1d170f] border border-[var(--line)] hover:border-[var(--orange)] text-xs font-heading font-bold text-[var(--ink)] flex items-center gap-1 transition-all cursor-pointer"
+                    >
+                      <span className="badge-lvl-10 w-3.5 h-3.5 rounded text-[9px] font-black flex items-center justify-center">10</span>
+                      <span>{tag}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {loginError && <p className="text-xs text-rose-400 font-heading">{loginError}</p>}
+
+              <div className="pt-2 flex gap-3">
+                <Button
+                  type="submit"
+                  disabled={isLoggingIn}
+                  className="flex-1 bg-[var(--orange)] hover:bg-[var(--orange-soft)] text-black font-heading font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer shadow-md shadow-[var(--orange)]/20"
+                >
+                  <FaceitIcon className="w-4 h-4" />
+                  <span>{isLoggingIn ? 'Verifying with FACEIT API...' : 'Connect FACEIT Profile'}</span>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsLoginModalOpen(false)}
+                  className="border-[var(--line)] text-[var(--ink)] hover:bg-[#1a140b] font-heading cursor-pointer"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

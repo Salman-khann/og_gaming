@@ -335,7 +335,7 @@ nav.wrap {
 
 /* HERO */
 .hero {
-  padding: 85px 0 70px;
+  padding: 52px 0 42px;
   position: relative;
   border-bottom: 1px solid var(--line);
   overflow: hidden;
@@ -364,11 +364,11 @@ nav.wrap {
   align-items: center;
   gap: 8px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  padding: 7px 16px;
+  padding: 6px 14px;
   border-radius: 20px;
   font-size: 0.82rem;
   color: var(--ink-dim);
-  margin-bottom: 26px;
+  margin-bottom: 18px;
   background: rgba(21, 17, 9, 0.7);
   backdrop-filter: blur(8px);
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
@@ -389,9 +389,9 @@ nav.wrap {
 }
 
 .hero h1 {
-  font-size: clamp(2.5rem, 5.8vw, 4.3rem);
+  font-size: clamp(2.4rem, 5.5vw, 4.2rem);
   line-height: 1.02;
-  max-width: 13ch;
+  max-width: 14ch;
   text-transform: none;
 }
 
@@ -403,17 +403,17 @@ nav.wrap {
 }
 
 .hero p.lead {
-  margin-top: 22px;
+  margin-top: 14px;
   max-width: 48ch;
   color: var(--ink-dim);
-  font-size: 1.08rem;
-  line-height: 1.6;
+  font-size: 1.05rem;
+  line-height: 1.55;
 }
 
 .hero .actions {
-  margin-top: 36px;
+  margin-top: 24px;
   display: flex;
-  gap: 16px;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
@@ -421,9 +421,9 @@ nav.wrap {
   background: var(--orange);
   color: #0b0a08;
   font-weight: 700;
-  padding: 14px 28px;
+  padding: 12px 24px;
   border-radius: var(--radius);
-  font-size: 1rem;
+  font-size: 0.95rem;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -442,9 +442,9 @@ nav.wrap {
 .btn-ghost {
   border: 1px solid var(--line);
   color: var(--ink);
-  padding: 14px 28px;
+  padding: 12px 24px;
   border-radius: var(--radius);
-  font-size: 1rem;
+  font-size: 0.95rem;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -463,14 +463,14 @@ nav.wrap {
 }
 
 .statline {
-  margin-top: 64px;
+  margin-top: 36px;
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   border-top: 1px solid var(--line);
 }
 
 .statline div {
-  padding: 24px 20px 0 0;
+  padding: 16px 16px 0 0;
   border-right: 1px solid var(--line);
 }
 
@@ -507,7 +507,7 @@ nav.wrap {
 
 /* SECTION HEADER */
 .sec-head {
-  padding: 68px 0 32px;
+  padding: 34px 0 16px;
 }
 
 .sec-head .eyebrow {
@@ -520,7 +520,7 @@ nav.wrap {
 }
 
 .sec-head h2 {
-  font-size: clamp(1.9rem, 3.5vw, 2.6rem);
+  font-size: clamp(1.85rem, 3.4vw, 2.5rem);
   margin-top: 6px;
   max-width: 20ch;
   line-height: 1.15;
@@ -528,14 +528,14 @@ nav.wrap {
 
 .sec-head p {
   color: var(--ink-dim);
-  margin-top: 12px;
+  margin-top: 8px;
   max-width: 52ch;
-  font-size: 0.98rem;
+  font-size: 0.94rem;
 }
 
 /* BAY DIRECTORY */
 .bays {
-  padding-bottom: 74px;
+  padding-bottom: 32px;
 }
 
 .bay-grid {
@@ -547,11 +547,13 @@ nav.wrap {
 }
 
 .bay {
-  padding: 28px 22px;
+  padding: 18px 16px;
   background: var(--panel);
-  min-height: 240px;
+  min-height: 180px;
+  height: 100%;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
   overflow: hidden;
@@ -599,25 +601,25 @@ nav.wrap {
 .bay .name {
   font-family: var(--font-rajdhani), 'Rajdhani', sans-serif;
   font-weight: 700;
-  font-size: 1.35rem;
-  margin-top: 8px;
+  font-size: 1.25rem;
+  margin-top: 6px;
   color: var(--ink);
 }
 
 .bay .desc {
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   color: var(--ink-dim);
-  margin-top: 10px;
+  margin-top: 6px;
   flex: 1;
-  line-height: 1.55;
+  line-height: 1.45;
 }
 
 .bay .badge {
-  margin-top: 16px;
+  margin-top: 10px;
   font-size: 0.72rem;
   font-weight: 700;
   display: inline-block;
-  padding: 4px 10px;
+  padding: 3px 9px;
   border-radius: 20px;
   width: fit-content;
   font-family: var(--font-rajdhani), sans-serif;
@@ -661,7 +663,7 @@ nav.wrap {
 
 /* SPECS */
 .specs {
-  padding-bottom: 74px;
+  padding-bottom: 32px;
 }
 
 .spec-cols {
@@ -674,7 +676,11 @@ nav.wrap {
 
 .spec-col {
   background: var(--bg);
-  padding: 34px 32px;
+  padding: 24px 22px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   transition: background 0.3s ease;
 }
 
@@ -683,23 +689,27 @@ nav.wrap {
 }
 
 .spec-col h3 {
-  font-size: 1.4rem;
+  font-size: 1.35rem;
   color: var(--orange);
   letter-spacing: 0.02em;
 }
 
 .spec-col ul {
-  margin-top: 20px;
+  margin-top: 14px;
   list-style: none;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
 }
 
 .spec-col li {
-  padding: 13px 0;
+  padding: 10px 0;
   border-top: 1px solid var(--line);
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  font-size: 0.92rem;
+  font-size: 0.91rem;
   transition: background 0.2s ease;
 }
 
@@ -725,12 +735,12 @@ nav.wrap {
 
 /* PRICING */
 .pricing {
-  padding-bottom: 78px;
+  padding-bottom: 32px;
 }
 
 .price-cols {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
+  grid-template-columns: 1fr 1fr;
   gap: 1px;
   background: var(--line);
   border: 1px solid var(--line);
@@ -738,7 +748,11 @@ nav.wrap {
 
 .price-col {
   background: var(--panel);
-  padding: 34px 32px;
+  padding: 24px 22px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
   transition: all 0.3s ease;
 }
 
@@ -747,27 +761,27 @@ nav.wrap {
 }
 
 .price-col h3 {
-  font-size: 1.4rem;
+  font-size: 1.35rem;
 }
 
 .price-col .rate {
   font-family: var(--font-rajdhani), 'Rajdhani', sans-serif;
   font-weight: 700;
   color: var(--orange);
-  font-size: 2.9rem;
-  margin-top: 10px;
+  font-size: 2.7rem;
+  margin-top: 8px;
   line-height: 1;
 }
 
 .price-col .rate sup {
-  font-size: 1.05rem;
+  font-size: 1rem;
   color: var(--ink-dim);
   font-weight: 500;
   margin-left: 4px;
 }
 
 .pkg-grid {
-  margin-top: 24px;
+  margin-top: 16px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 1px;
@@ -777,7 +791,7 @@ nav.wrap {
 
 .pkg {
   background: var(--bg);
-  padding: 16px 18px;
+  padding: 12px 14px;
   transition: background 0.2s ease, transform 0.2s ease;
 }
 
@@ -787,7 +801,7 @@ nav.wrap {
 }
 
 .pkg .h {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--ink-dim);
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -796,16 +810,16 @@ nav.wrap {
 .pkg .v {
   font-family: var(--font-rajdhani), 'Rajdhani', sans-serif;
   font-weight: 700;
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   color: var(--ink);
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
 .price-note {
-  margin-top: 18px;
-  font-size: 0.85rem;
+  margin-top: 14px;
+  font-size: 0.82rem;
   color: var(--ink-dim);
-  line-height: 1.5;
+  line-height: 1.45;
 }
 
 @media (max-width: 760px) {
@@ -818,28 +832,35 @@ nav.wrap {
 .trust {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
-  padding: 44px 0;
+  padding: 26px 0;
   background: rgba(21, 17, 9, 0.45);
 }
 
 .trust-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 30px;
+  gap: 24px;
+}
+
+.trust-item {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .trust-item .t {
   font-family: var(--font-rajdhani), 'Rajdhani', sans-serif;
   font-weight: 700;
-  font-size: 1.18rem;
+  font-size: 1.15rem;
   color: var(--ink);
 }
 
 .trust-item .d {
   color: var(--ink-dim);
-  font-size: 0.88rem;
-  margin-top: 6px;
-  line-height: 1.5;
+  font-size: 0.85rem;
+  margin-top: 4px;
+  line-height: 1.45;
 }
 
 @media (max-width: 760px) {
@@ -856,7 +877,7 @@ nav.wrap {
 
 /* LOCATION */
 .location {
-  padding: 74px 0;
+  padding: 36px 0;
 }
 
 .loc-grid {
@@ -869,7 +890,11 @@ nav.wrap {
 
 .loc-col {
   background: var(--panel);
-  padding: 36px 32px;
+  padding: 26px 24px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .loc-col h3 {
@@ -941,7 +966,7 @@ nav.wrap {
 /* CTA BAND */
 .cta-band {
   background: linear-gradient(135deg, var(--orange-deep), var(--orange));
-  padding: 60px 0;
+  padding: 36px 0;
   text-align: left;
   box-shadow: 0 0 50px rgba(255, 106, 18, 0.2);
 }
@@ -974,7 +999,7 @@ nav.wrap {
 
 /* FOOTER */
 footer.site-footer {
-  padding: 48px 0 32px;
+  padding: 32px 0 24px;
 }
 
 .foot-grid {
@@ -982,9 +1007,9 @@ footer.site-footer {
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
-  gap: 26px;
+  gap: 20px;
   border-top: 1px solid var(--line);
-  padding-top: 32px;
+  padding-top: 24px;
 }
 
 .foot-brand {

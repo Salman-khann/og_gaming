@@ -2,12 +2,11 @@
 
 import React, { useState } from 'react';
 import { MatchRequest, Profile, Cabin } from '@/types';
-import { Swords, Users, Plus, Shield, CheckCircle, AlertCircle, Clock, MapPin, Sparkles } from 'lucide-react';
+import { Swords, Users, Plus, Shield, CheckCircle, AlertCircle, Clock, MapPin, Sparkles, UserPlus } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 
 interface MatchBoardProps {
   matches: MatchRequest[];
@@ -20,7 +19,7 @@ export function MatchBoard({ matches, cabins, currentProfile, onMatchUpdated }: 
   const [filterType, setFilterType] = useState<string>('all');
   const [selectedMatchForRoster, setSelectedMatchForRoster] = useState<MatchRequest | null>(null);
   
-  // Create Modal
+  // Create Modal State
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [type, setType] = useState<MatchRequest['type']>('gather_5v5');
@@ -99,13 +98,12 @@ export function MatchBoard({ matches, cabins, currentProfile, onMatchUpdated }: 
           scheduled_time: scheduledDate.toISOString(),
           min_faceit_level: minLevel,
           max_faceit_level: maxLevel,
-          target_players_count: type === 'solo_lfg' ? 5 : 10,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        setFormError(data.error || 'Failed to create match');
+        setFormError(data.error || 'Failed to create match request');
         setIsSubmitting(false);
         return;
       }
@@ -115,7 +113,7 @@ export function MatchBoard({ matches, cabins, currentProfile, onMatchUpdated }: 
       setDescription('');
       onMatchUpdated();
     } catch (err) {
-      setFormError('Network error creating match');
+      setFormError('Network error creating match request');
     } finally {
       setIsSubmitting(false);
     }
@@ -126,71 +124,79 @@ export function MatchBoard({ matches, cabins, currentProfile, onMatchUpdated }: 
       {/* Top Controls: Filter & Create button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
-          <Button
-            size="sm"
-            variant={filterType === 'all' ? 'default' : 'outline'}
+          <button
             onClick={() => setFilterType('all')}
-            className={filterType === 'all' ? 'bg-primary text-black font-bold' : ''}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all ${
+              filterType === 'all'
+                ? 'bg-[var(--orange)] text-black shadow-md shadow-[var(--orange)]/25'
+                : 'bg-[#151109] border border-[var(--line)] text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--orange)]/40'
+            }`}
           >
             All Requests ({matches.length})
-          </Button>
-          <Button
-            size="sm"
-            variant={filterType === 'gather_5v5' ? 'default' : 'outline'}
+          </button>
+          <button
             onClick={() => setFilterType('gather_5v5')}
-            className={filterType === 'gather_5v5' ? 'bg-primary text-black font-bold' : ''}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all ${
+              filterType === 'gather_5v5'
+                ? 'bg-[var(--orange)] text-black shadow-md shadow-[var(--orange)]/25'
+                : 'bg-[#151109] border border-[var(--line)] text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--orange)]/40'
+            }`}
           >
             5v5 Gathers
-          </Button>
-          <Button
-            size="sm"
-            variant={filterType === 'team_vs_team' ? 'default' : 'outline'}
+          </button>
+          <button
             onClick={() => setFilterType('team_vs_team')}
-            className={filterType === 'team_vs_team' ? 'bg-primary text-black font-bold' : ''}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all ${
+              filterType === 'team_vs_team'
+                ? 'bg-[var(--orange)] text-black shadow-md shadow-[var(--orange)]/25'
+                : 'bg-[#151109] border border-[var(--line)] text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--orange)]/40'
+            }`}
           >
             Team vs Team Scrims
-          </Button>
-          <Button
-            size="sm"
-            variant={filterType === 'solo_lfg' ? 'default' : 'outline'}
+          </button>
+          <button
             onClick={() => setFilterType('solo_lfg')}
-            className={filterType === 'solo_lfg' ? 'bg-primary text-black font-bold' : ''}
+            className={`px-3.5 py-1.5 rounded-lg text-xs font-heading font-bold transition-all ${
+              filterType === 'solo_lfg'
+                ? 'bg-[var(--orange)] text-black shadow-md shadow-[var(--orange)]/25'
+                : 'bg-[#151109] border border-[var(--line)] text-[var(--ink-dim)] hover:text-[var(--ink)] hover:border-[var(--orange)]/40'
+            }`}
           >
             Looking For Players (LFP)
-          </Button>
+          </button>
         </div>
 
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogTrigger className="inline-flex items-center justify-center rounded-md text-sm font-bold h-9 px-4 py-2 bg-primary text-black hover:bg-orange-500 shadow-md shadow-primary/20 cursor-pointer outline-none">
+          <DialogTrigger className="inline-flex items-center justify-center rounded-lg text-sm font-heading font-bold h-9 px-4 py-2 bg-[var(--orange)] hover:bg-[var(--orange-soft)] text-black shadow-md shadow-[var(--orange)]/25 cursor-pointer outline-none">
             <Plus className="w-4 h-4 mr-1.5" />
             Post 5v5 Match Request
           </DialogTrigger>
-          <DialogContent className="bg-card border-border sm:max-w-lg">
+          <DialogContent className="bg-[#151109] border-[var(--line)] text-[var(--ink)] sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Swords className="w-5 h-5 text-primary" />
-                Create 5v5 LAN Match Request
+              <DialogTitle className="flex items-center gap-2 font-heading text-xl text-[var(--ink)]">
+                <Swords className="w-5 h-5 text-[var(--orange)]" />
+                <span>Create 5v5 LAN Match Request</span>
               </DialogTitle>
             </DialogHeader>
 
             <form onSubmit={handleCreateMatch} className="space-y-4 pt-2">
               <div>
-                <Label className="text-xs">Match Title</Label>
+                <Label className="text-xs font-heading text-[var(--ink-dim)] uppercase">Match Title</Label>
                 <Input
                   placeholder="e.g. Inferno BO3 Scrim (Level 7-10)"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="bg-secondary border-border mt-1"
+                  className="bg-[#0b0a08] border-[var(--line)] text-[var(--ink)] mt-1 font-heading"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Match Format</Label>
+                  <Label className="text-xs font-heading text-[var(--ink-dim)] uppercase">Match Format</Label>
                   <select
                     value={type}
                     onChange={(e) => setType(e.target.value as MatchRequest['type'])}
-                    className="w-full h-9 rounded-md border border-border bg-secondary text-sm px-3 mt-1"
+                    className="w-full h-9 rounded-md border border-[var(--line)] bg-[#0b0a08] text-sm text-[var(--ink)] px-3 mt-1 font-heading"
                   >
                     <option value="gather_5v5">Gather 5v5 (Mix teams on stage)</option>
                     <option value="team_vs_team">Team vs Team (5-Stack Scrim)</option>
@@ -199,11 +205,11 @@ export function MatchBoard({ matches, cabins, currentProfile, onMatchUpdated }: 
                 </div>
 
                 <div>
-                  <Label className="text-xs">Preferred Cabin</Label>
+                  <Label className="text-xs font-heading text-[var(--ink-dim)] uppercase">Preferred Cabin</Label>
                   <select
                     value={preferredCabinId}
                     onChange={(e) => setPreferredCabinId(e.target.value)}
-                    className="w-full h-9 rounded-md border border-border bg-secondary text-sm px-3 mt-1"
+                    className="w-full h-9 rounded-md border border-[var(--line)] bg-[#0b0a08] text-sm text-[var(--ink)] px-3 mt-1 font-heading"
                   >
                     {cabins.map((c) => (
                       <option key={c.id} value={c.id}>
@@ -216,11 +222,11 @@ export function MatchBoard({ matches, cabins, currentProfile, onMatchUpdated }: 
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs">Min FACEIT Level</Label>
+                  <Label className="text-xs font-heading text-[var(--ink-dim)] uppercase">Min FACEIT Level</Label>
                   <select
                     value={minLevel}
-                    onChange={(e) => setMinLevel(Number(e.target.value))}
-                    className="w-full h-9 rounded-md border border-border bg-secondary text-sm px-3 mt-1"
+                    onChange={(e) => setMinLevel(parseInt(e.target.value))}
+                    className="w-full h-9 rounded-md border border-[var(--line)] bg-[#0b0a08] text-sm text-[var(--ink)] px-3 mt-1 font-heading"
                   >
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((l) => (
                       <option key={l} value={l}>
@@ -231,11 +237,11 @@ export function MatchBoard({ matches, cabins, currentProfile, onMatchUpdated }: 
                 </div>
 
                 <div>
-                  <Label className="text-xs">Max FACEIT Level</Label>
+                  <Label className="text-xs font-heading text-[var(--ink-dim)] uppercase">Max FACEIT Level</Label>
                   <select
                     value={maxLevel}
-                    onChange={(e) => setMaxLevel(Number(e.target.value))}
-                    className="w-full h-9 rounded-md border border-border bg-secondary text-sm px-3 mt-1"
+                    onChange={(e) => setMaxLevel(parseInt(e.target.value))}
+                    className="w-full h-9 rounded-md border border-[var(--line)] bg-[#0b0a08] text-sm text-[var(--ink)] px-3 mt-1 font-heading"
                   >
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((l) => (
                       <option key={l} value={l}>
@@ -247,23 +253,32 @@ export function MatchBoard({ matches, cabins, currentProfile, onMatchUpdated }: 
               </div>
 
               <div>
-                <Label className="text-xs">Description / Rules</Label>
+                <Label className="text-xs font-heading text-[var(--ink-dim)] uppercase">Description / Server Notes</Label>
                 <Input
-                  placeholder="e.g. Warmup 15 mins then BO1 on Mirage. 128 tick LAN server."
+                  placeholder="e.g. 128-tick warmup, knife round for sides, BO3"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className="bg-secondary border-border mt-1"
+                  className="bg-[#0b0a08] border-[var(--line)] text-[var(--ink)] mt-1 font-heading"
                 />
               </div>
 
-              {formError && <p className="text-xs text-destructive">{formError}</p>}
+              {formError && <p className="text-xs text-rose-400">{formError}</p>}
 
-              <div className="flex justify-end gap-2 pt-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
-                  Cancel
+              <div className="pt-2 flex gap-3">
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 bg-[var(--orange)] hover:bg-[var(--orange-soft)] text-black font-heading font-bold"
+                >
+                  {isSubmitting ? 'Publishing...' : 'Publish Match Request'}
                 </Button>
-                <Button type="submit" disabled={isSubmitting} className="bg-primary text-black font-bold">
-                  {isSubmitting ? 'Posting...' : 'Post Match'}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateOpen(false)}
+                  className="border-[var(--line)] text-[var(--ink)] hover:bg-[#1a140b] font-heading"
+                >
+                  Cancel
                 </Button>
               </div>
             </form>
@@ -271,139 +286,115 @@ export function MatchBoard({ matches, cabins, currentProfile, onMatchUpdated }: 
         </Dialog>
       </div>
 
-      {/* Match Request Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Match Cards List */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {filteredMatches.map((match) => {
-          const isFull = match.current_players_count >= match.target_players_count;
-          const isCreator = match.creator_id === currentProfile.id;
-          const alreadyJoined = match.roster.some(
-            (p) => p.nickname.toLowerCase() === currentProfile.faceit_nickname.toLowerCase()
+          const cabin = cabins.find((c) => c.id === match.preferred_cabin_id);
+          const isUserInRoster = match.roster?.some(
+            (r) => r.id === currentProfile.id || r.nickname.toLowerCase() === currentProfile.faceit_nickname.toLowerCase()
           );
-
-          const isEligible =
-            currentProfile.faceit_level >= match.min_faceit_level &&
-            currentProfile.faceit_level <= match.max_faceit_level;
+          const isFull = (match.roster?.length || 0) >= 10;
+          const isJoining = joiningMatchId === match.id;
+          const err = joinError?.matchId === match.id ? joinError.msg : null;
 
           return (
             <div
               key={match.id}
-              className="glass-panel p-5 rounded-2xl border border-border flex flex-col justify-between space-y-4 glass-panel-hover"
+              className="p-4 rounded-xl bg-[#151109] border border-[var(--line)] hover:border-[var(--orange)]/40 hover:shadow-[0_0_16px_rgba(255,106,18,0.12)] transition-all flex flex-col justify-between h-full group"
             >
               <div>
-                {/* Header tags */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-primary/15 text-primary border border-primary/30 uppercase tracking-wider">
-                      {match.type.replace('_', ' ')}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      LAN Match
-                    </span>
-                  </div>
-
-                  <Badge
-                    variant="outline"
-                    className="text-xs font-semibold flex items-center gap-1 border-border bg-secondary/60"
-                  >
-                    FACEIT Lvl {match.min_faceit_level} - {match.max_faceit_level}
-                  </Badge>
+                {/* Header info */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-heading font-bold px-2 py-0.5 rounded bg-[var(--orange)]/15 text-[var(--orange)] border border-[var(--orange)]/30 uppercase tracking-widest">
+                    {match.type.replace(/_/g, ' ')}
+                  </span>
+                  <span className="text-xs text-[var(--ink-dim)] flex items-center gap-1 font-heading">
+                    <Clock className="w-3.5 h-3.5 text-[var(--orange)]" />
+                    Today 18:00
+                  </span>
                 </div>
 
-                {/* Title & Description */}
-                <h3 className="text-base font-black text-foreground mt-3 tracking-tight">{match.title}</h3>
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{match.description || 'No extra notes provided.'}</p>
+                <h4 className="font-heading font-bold text-base text-[var(--ink)] tracking-tight line-clamp-1 group-hover:text-[var(--orange)] transition-colors">
+                  {match.title}
+                </h4>
+                <p className="text-xs text-[var(--ink-dim)] mt-0.5 h-8 line-clamp-2 leading-relaxed">
+                  {match.description || 'Competitive community 5v5 CS2 match hosted at OG Gaming.'}
+                </p>
 
-                {/* Creator & Cabin info */}
-                <div className="mt-4 pt-3 border-t border-border/50 flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">Host:</span>
-                    <span className="font-bold text-foreground flex items-center gap-1.5">
-                      <span
-                        className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center ${getLevelBadgeClass(
-                          match.creator?.faceit_level || 3
-                        )}`}
-                      >
-                        {match.creator?.faceit_level || 3}
-                      </span>
-                      {match.creator?.faceit_nickname || 'Player'}
+                {/* Level Criteria */}
+                <div className="mt-3 p-2 rounded-lg bg-[#0b0a08] border border-[var(--line)] flex items-center justify-between text-xs font-heading">
+                  <span className="text-[var(--ink-dim)] uppercase tracking-wider text-[10px]">ELO Restriction:</span>
+                  <div className="flex items-center gap-1">
+                    <span className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center ${getLevelBadgeClass(match.min_faceit_level)}`}>
+                      {match.min_faceit_level}
+                    </span>
+                    <span className="text-[var(--ink-dim)] font-bold text-[10px]">to</span>
+                    <span className={`w-4 h-4 rounded text-[9px] font-black flex items-center justify-center ${getLevelBadgeClass(match.max_faceit_level)}`}>
+                      {match.max_faceit_level}
                     </span>
                   </div>
+                </div>
 
-                  {match.preferred_cabin && (
-                    <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-primary" />
-                      {match.preferred_cabin.name.split(' - ')[0]}
-                    </span>
+                {/* Roster preview list with uniform height */}
+                <div className="mt-2.5 min-h-[26px]">
+                  {match.roster && match.roster.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 max-h-[26px] overflow-hidden">
+                      {match.roster.slice(0, 4).map((player) => (
+                        <span
+                          key={player.id || player.nickname}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#0b0a08] border border-[var(--line)] text-[10px] font-heading text-[var(--ink)]"
+                        >
+                          <span className={`w-3 h-3 rounded text-[8px] font-black flex items-center justify-center ${getLevelBadgeClass(player.level)}`}>
+                            {player.level}
+                          </span>
+                          <span className="font-semibold truncate max-w-[70px]">{player.nickname}</span>
+                        </span>
+                      ))}
+                      {match.roster.length > 4 && (
+                        <span className="text-[10px] text-[var(--orange)] font-heading font-bold self-center">
+                          +{match.roster.length - 4} more
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-[var(--ink-dim)] font-heading flex items-center h-[26px]">
+                      Open registration • 0/10 slots secured
+                    </div>
                   )}
+                </div>
+
+                {/* Location / Cabin */}
+                <div className="mt-2.5 pt-2 border-t border-[var(--line)]/60 flex items-center justify-between text-xs text-[var(--ink-dim)] font-heading">
+                  <span className="flex items-center gap-1 text-[11px]">
+                    <MapPin className="w-3.5 h-3.5 text-[var(--orange)]" />
+                    {cabin ? cabin.name.split(' - ')[0] : 'Bahadurabad Hall'}
+                  </span>
+                  <span className="flex items-center gap-1 text-[11px] text-[var(--ink)]">
+                    <Users className="w-3.5 h-3.5 text-[var(--orange)]" />
+                    {match.roster?.length || 0}/10 Players
+                  </span>
                 </div>
               </div>
 
-              {/* Player Count & Join Action */}
-              <div className="pt-2 flex flex-col space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-full bg-secondary h-2 rounded-full overflow-hidden w-28">
-                      <div
-                        className="bg-primary h-full transition-all"
-                        style={{
-                          width: `${Math.min(100, (match.current_players_count / match.target_players_count) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="text-xs font-bold text-foreground">
-                      {match.current_players_count}/{match.target_players_count} Players
+              {/* Action buttons */}
+              <div className="mt-3 pt-2.5 border-t border-[var(--line)] flex flex-col gap-1.5">
+                {err && <p className="text-[10px] text-rose-400 font-heading">{err}</p>}
+
+                <div className="flex items-center gap-2">
+                  {isUserInRoster ? (
+                    <span className="flex-1 py-1.5 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-heading font-bold flex items-center justify-center gap-1.5">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Slot Confirmed
                     </span>
-                  </div>
-
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => setSelectedMatchForRoster(match)}
-                    className="text-xs text-muted-foreground hover:text-foreground h-7"
-                  >
-                    View Roster ({match.roster.length})
-                  </Button>
-                </div>
-
-                {/* Join Feedback message */}
-                {joinError && joinError.matchId === match.id && (
-                  <div className="p-2 rounded bg-destructive/15 border border-destructive/30 text-destructive text-xs flex items-center gap-1.5">
-                    <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
-                    <span>{joinError.msg}</span>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="pt-1 flex gap-2">
-                  {alreadyJoined ? (
-                    <Button disabled size="sm" className="w-full bg-secondary text-muted-foreground text-xs">
-                      <CheckCircle className="w-3.5 h-3.5 mr-1 text-emerald-400" />
-                      Already in Roster
-                    </Button>
-                  ) : isFull ? (
-                    <Button disabled size="sm" className="w-full bg-secondary text-muted-foreground text-xs">
-                      Match Full
-                    </Button>
-                  ) : !isEligible ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled
-                      className="w-full border-destructive/40 text-destructive/80 text-xs"
-                    >
-                      Ineligible (Your Lvl {currentProfile.faceit_level} vs Req Lvl {match.min_faceit_level}-
-                      {match.max_faceit_level})
-                    </Button>
                   ) : (
-                    <Button
-                      size="sm"
+                    <button
                       onClick={() => handleJoin(match)}
-                      disabled={joiningMatchId === match.id}
-                      className="w-full bg-primary text-black font-bold hover:bg-orange-500 shadow-sm"
+                      disabled={isFull || isJoining}
+                      className="flex-1 py-2 px-3 rounded-lg bg-[var(--orange)] hover:bg-[var(--orange-soft)] text-black text-xs font-heading font-bold uppercase tracking-wider transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-[var(--orange)]/20"
                     >
-                      {joiningMatchId === match.id ? 'Joining...' : 'Join 5v5 Stack'}
-                    </Button>
+                      <UserPlus className="w-3.5 h-3.5" />
+                      <span>{isFull ? 'Roster Full' : isJoining ? 'Securing...' : 'Join 5v5 Roster'}</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -411,54 +402,6 @@ export function MatchBoard({ matches, cabins, currentProfile, onMatchUpdated }: 
           );
         })}
       </div>
-
-      {/* Roster Modal */}
-      <Dialog open={!!selectedMatchForRoster} onOpenChange={(open) => !open && setSelectedMatchForRoster(null)}>
-        <DialogContent className="bg-card border-border sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="w-5 h-5 text-primary" />
-              {selectedMatchForRoster?.title} Roster
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-3 pt-2">
-            <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-              <span>Player Nickname</span>
-              <span>FACEIT Rating</span>
-            </div>
-
-            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-              {selectedMatchForRoster?.roster.map((p, idx) => (
-                <div
-                  key={idx}
-                  className="p-2.5 rounded-lg bg-secondary/80 border border-border/80 flex items-center justify-between"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span
-                      className={`w-5 h-5 rounded text-[10px] font-black flex items-center justify-center ${getLevelBadgeClass(
-                        p.level
-                      )}`}
-                    >
-                      {p.level}
-                    </span>
-                    <div>
-                      <span className="text-sm font-bold text-foreground">{p.nickname}</span>
-                      {p.role && <span className="text-[10px] text-muted-foreground ml-2">({p.role})</span>}
-                    </div>
-                  </div>
-                  <span className="text-xs font-mono text-muted-foreground">{p.elo} Elo</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="pt-2 text-center text-xs text-muted-foreground">
-              {selectedMatchForRoster &&
-                `${selectedMatchForRoster.roster.length} of ${selectedMatchForRoster.target_players_count} slots taken`}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

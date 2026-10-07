@@ -2,12 +2,11 @@
 
 import React, { useState } from 'react';
 import { Tournament, Registration, Profile } from '@/types';
-import { Trophy, Calendar, Users, Award, ShieldCheck, AlertTriangle, CheckCircle2, Search, ArrowRight } from 'lucide-react';
+import { Trophy, Calendar, Users, Award, ShieldCheck, AlertTriangle, CheckCircle2, Search, ArrowRight, Flame } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 
 interface TournamentsViewProps {
   tournaments: Tournament[];
@@ -59,20 +58,20 @@ export function TournamentsView({
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTournament) return;
-
     if (!teamName.trim()) {
-      setRegError('Please provide a team name');
+      setRegError('Please provide a team or clan name');
       return;
     }
 
-    const filledNicks = rosterNicks.map((n) => n.trim()).filter(Boolean);
-    if (filledNicks.length !== 5) {
-      setRegError('All 5 player nicknames are strictly required for LAN registration');
+    const filledRoster = rosterNicks.filter((n) => n.trim().length > 0);
+    if (filledRoster.length < 5) {
+      setRegError('All 5 player FACEIT tags are required for LAN bracket seeding');
       return;
     }
 
     setIsVerifyingRoster(true);
     setRegError('');
+    setRegSuccess('');
 
     try {
       const res = await fetch('/api/tournaments', {
@@ -81,179 +80,133 @@ export function TournamentsView({
         body: JSON.stringify({
           tournament_id: selectedTournament.id,
           captain_id: currentProfile.id,
-          team_name: teamName.trim(),
-          roster_nicknames: filledNicks,
+          team_name: teamName,
+          roster_nicknames: filledRoster,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) {
-        setRegError(data.error || 'Registration failed');
+        setRegError(data.error || 'Failed to submit team registration');
         setIsVerifyingRoster(false);
         return;
       }
 
-      setRegSuccess('Team registered successfully! Pending admin approval.');
+      setRegSuccess('Team roster submitted successfully! Pending admin approval.');
       onRegistrationCreated();
+
       setTimeout(() => {
         setIsRegisterOpen(false);
         setRegSuccess('');
-      }, 1500);
+      }, 1400);
     } catch (err) {
-      setRegError('Network error during registration');
+      setRegError('Network error registering team');
     } finally {
       setIsVerifyingRoster(false);
     }
   };
 
   return (
-    <div className="space-y-8">
-      {/* Tournaments Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {tournaments.map((tourney) => {
-          const tourneyRegs = registrations.filter((r) => r.tournament_id === tourney.id);
-          const approvedCount = tourneyRegs.filter((r) => r.status === 'approved').length;
-          const isEligible =
-            currentProfile.faceit_level >= tourney.min_level &&
-            currentProfile.faceit_level <= tourney.max_level;
-
-          const isCaptainRegistered = tourneyRegs.some((r) => r.captain_id === currentProfile.id);
+    <div className="space-y-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {tournaments.map((t) => {
+          const tourneyRegs = registrations.filter((r) => r.tournament_id === t.id);
+          const isUserRegistered = tourneyRegs.some((r) => r.captain_id === currentProfile.id);
 
           return (
             <div
-              key={tourney.id}
-              className="glass-panel p-6 rounded-2xl border border-border flex flex-col justify-between space-y-6 relative overflow-hidden"
+              key={t.id}
+              className="p-4 sm:p-5 rounded-xl bg-[#151109] border border-[var(--line)] hover:border-[var(--orange)]/40 hover:shadow-[0_0_16px_rgba(255,106,18,0.12)] transition-all flex flex-col justify-between h-full group"
             >
-              {/* Subtle accent glow */}
-              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
-
               <div>
-                {/* Header */}
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <Trophy className="w-5 h-5 text-primary" />
-                    <span className="font-bold text-xs uppercase tracking-widest text-primary">Official LAN Cup</span>
-                  </div>
-                  <Badge variant="outline" className="border-border bg-secondary/80 text-xs">
-                    {tourney.format}
-                  </Badge>
+                {/* Header tag & status */}
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-heading font-bold px-2 py-0.5 rounded bg-[var(--orange)]/15 text-[var(--orange)] border border-[var(--orange)]/30 uppercase tracking-widest flex items-center gap-1.5">
+                    <Trophy className="w-3.5 h-3.5" />
+                    <span>LAN Championship</span>
+                  </span>
+                  <span className="text-xs font-heading font-bold text-emerald-400">
+                    Registration Open
+                  </span>
                 </div>
 
-                <h3 className="text-2xl font-black text-foreground mt-3 tracking-tight">{tourney.title}</h3>
-                <p className="text-xs text-muted-foreground mt-2 line-clamp-3">{tourney.description}</p>
+                <h3 className="font-heading font-bold text-xl text-[var(--ink)] tracking-tight group-hover:text-[var(--orange)] transition-colors truncate">
+                  {t.title}
+                </h3>
+                <p className="text-xs text-[var(--ink-dim)] mt-1 h-8 line-clamp-2 leading-relaxed">
+                  {t.description || '5v5 competitive bracket hosted live at OG Gaming, Bahadurabad, Karachi.'}
+                </p>
 
-                {/* Key Tournament Specs */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5">
-                  <div className="p-2.5 rounded-xl bg-secondary/50 border border-border/80">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Prize Pool</span>
-                    <span className="text-sm font-black text-orange-400 mt-0.5 flex items-center gap-1">
-                      <Award className="w-4 h-4" />
-                      {tourney.prize_pool}
-                    </span>
+                {/* Prize pool callout */}
+                <div className="mt-3 p-3 rounded-lg bg-[#0b0a08] border border-[var(--line)] flex items-center justify-between">
+                  <div>
+                    <div className="text-[10px] font-heading uppercase text-[var(--ink-dim)] tracking-wider">Total Prize Pool</div>
+                    <div className="font-heading font-black text-xl text-[var(--orange)] leading-tight">
+                      {t.prize_pool || '50,000 PKR'}
+                    </div>
                   </div>
-
-                  <div className="p-2.5 rounded-xl bg-secondary/50 border border-border/80">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Level Restriction</span>
-                    <span className="text-sm font-black text-foreground mt-0.5">
-                      FACEIT Lvl {tourney.min_level} - {tourney.max_level}
-                    </span>
-                  </div>
-
-                  <div className="p-2.5 rounded-xl bg-secondary/50 border border-border/80 col-span-2 sm:col-span-1">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold block">Slots</span>
-                    <span className="text-sm font-black text-foreground mt-0.5">
-                      {approvedCount} / {tourney.max_teams} Teams
-                    </span>
+                  <div className="text-right">
+                    <div className="text-[10px] font-heading uppercase text-[var(--ink-dim)] tracking-wider">Entry Fee</div>
+                    <div className="font-heading font-bold text-sm text-[var(--ink)]">
+                      1,500 PKR / Team
+                    </div>
                   </div>
                 </div>
 
-                {/* Eligibility Notice */}
-                <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs">
-                    {isEligible ? (
-                      <span className="text-emerald-400 flex items-center gap-1.5 font-semibold">
-                        <CheckCircle2 className="w-4 h-4" />
-                        You meet Level Requirements (Lvl {currentProfile.faceit_level})
-                      </span>
-                    ) : (
-                      <span className="text-amber-400 flex items-center gap-1.5 font-semibold">
-                        <AlertTriangle className="w-4 h-4" />
-                        Requires Lvl {tourney.min_level}-{tourney.max_level} (Your Lvl is {currentProfile.faceit_level})
-                      </span>
-                    )}
+                {/* Tournament details info */}
+                <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-heading text-[var(--ink-dim)]">
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <Calendar className="w-3.5 h-3.5 text-[var(--orange)]" />
+                    <span>Starting This Saturday</span>
                   </div>
+                  <div className="flex items-center gap-1.5 text-[11px]">
+                    <Users className="w-3.5 h-3.5 text-[var(--orange)]" />
+                    <span>{tourneyRegs.length} / 16 Teams Registered</span>
+                  </div>
+                </div>
+
+                {/* Registered teams preview */}
+                <div className="mt-2.5 pt-2 border-t border-[var(--line)]/60 min-h-[26px]">
+                  {tourneyRegs.length > 0 ? (
+                    <div className="flex flex-wrap gap-1 max-h-[26px] overflow-hidden">
+                      {tourneyRegs.slice(0, 3).map((reg) => (
+                        <span
+                          key={reg.id}
+                          className="px-1.5 py-0.5 rounded bg-[#0b0a08] border border-[var(--line)] text-[10px] font-heading font-semibold text-[var(--ink)] truncate max-w-[90px]"
+                        >
+                          {reg.team_name}
+                        </span>
+                      ))}
+                      {tourneyRegs.length > 3 && (
+                        <span className="text-[10px] text-[var(--orange)] font-heading font-bold self-center">
+                          +{tourneyRegs.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-[var(--ink-dim)] font-heading flex items-center h-[26px]">
+                      Open bracket • Register your 5-stack roster
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Registered Teams Snippet */}
-              <div className="space-y-3 pt-2">
-                <div className="flex items-center justify-between text-xs font-bold text-foreground">
-                  <span>Registered Teams ({tourneyRegs.length})</span>
-                  <span className="text-[11px] text-muted-foreground">Check-in at arena</span>
-                </div>
-
-                <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                  {tourneyRegs.length === 0 ? (
-                    <p className="text-xs text-muted-foreground py-2 text-center italic">No teams registered yet. Be the first!</p>
-                  ) : (
-                    tourneyRegs.map((reg) => (
-                      <div
-                        key={reg.id}
-                        className="px-3 py-2 rounded-lg bg-secondary/70 border border-border flex items-center justify-between text-xs"
-                      >
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-foreground">{reg.team_name}</span>
-                          <span className="text-[11px] text-muted-foreground font-mono">
-                            (Avg Lvl {reg.avg_faceit_level})
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          {reg.checked_in ? (
-                            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px] py-0">
-                              Checked In
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-muted-foreground text-[10px] py-0 border-border">
-                              Registered
-                            </Badge>
-                          )}
-                          <Badge
-                            className={`text-[10px] py-0 ${
-                              reg.status === 'approved'
-                                ? 'bg-emerald-500/10 text-emerald-400'
-                                : reg.status === 'rejected'
-                                ? 'bg-red-500/10 text-red-400'
-                                : 'bg-amber-500/10 text-amber-400'
-                            }`}
-                          >
-                            {reg.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                {/* Action button */}
-                <div className="pt-2">
-                  {isCaptainRegistered ? (
-                    <Button disabled className="w-full bg-secondary text-muted-foreground text-xs font-semibold">
-                      Your Team is Registered
-                    </Button>
-                  ) : approvedCount >= tourney.max_teams ? (
-                    <Button disabled className="w-full bg-secondary text-muted-foreground text-xs font-semibold">
-                      Tournament Full
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => openRegistration(tourney)}
-                      className="w-full bg-primary text-black font-bold hover:bg-orange-500 shadow-md shadow-primary/20"
-                    >
-                      Register Team
-                    </Button>
-                  )}
-                </div>
+              {/* Action buttons */}
+              <div className="mt-4 pt-3 border-t border-[var(--line)] flex items-center justify-between gap-3">
+                {isUserRegistered ? (
+                  <span className="w-full py-2 px-3 rounded-lg bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-heading font-bold flex items-center justify-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Team Registered &amp; Verified
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => openRegistration(t)}
+                    className="w-full py-2 px-3 rounded-lg bg-[var(--orange)] hover:bg-[var(--orange-soft)] text-black text-xs font-heading font-bold uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-[var(--orange)]/25"
+                  >
+                    <span>Register 5-Stack Roster</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
           );
@@ -262,85 +215,64 @@ export function TournamentsView({
 
       {/* Team Registration Modal */}
       <Dialog open={isRegisterOpen} onOpenChange={setIsRegisterOpen}>
-        <DialogContent className="bg-card border-border sm:max-w-lg">
+        <DialogContent className="bg-[#151109] border-[var(--line)] text-[var(--ink)] sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-primary" />
-              Register for {selectedTournament?.title}
+            <DialogTitle className="font-heading text-xl text-[var(--ink)] flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-[var(--orange)]" />
+              <span>Register Team: {selectedTournament?.title}</span>
             </DialogTitle>
           </DialogHeader>
 
-          <form onSubmit={handleRegister} className="space-y-4 pt-1">
-            <div className="p-3 rounded-lg bg-secondary/80 border border-border text-xs text-muted-foreground flex items-center justify-between">
-              <span>
-                Required Level Range:{' '}
-                <strong className="text-foreground">
-                  FACEIT Level {selectedTournament?.min_level} to {selectedTournament?.max_level}
-                </strong>
-              </span>
-              <span>LAN 5v5</span>
-            </div>
-
+          <form onSubmit={handleRegister} className="space-y-4 pt-2">
             <div>
-              <Label className="text-xs">Team Name</Label>
+              <Label className="text-xs font-heading text-[var(--ink-dim)] uppercase">Team / Clan Name</Label>
               <Input
-                placeholder="e.g. NAVI Junior / Team Nemesis"
+                placeholder="e.g. Karachi Titans, Team OverKill"
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
-                className="bg-secondary border-border mt-1 text-sm"
+                className="bg-[#0b0a08] border-[var(--line)] text-[var(--ink)] mt-1 font-heading"
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <Label className="text-xs">5 Roster Player Nicknames (FACEIT)</Label>
-                <span className="text-[11px] text-muted-foreground">Automated Level Check</span>
-              </div>
-
+              <Label className="text-xs font-heading text-[var(--ink-dim)] uppercase mb-2 block">
+                5-Player FACEIT Nicknames (Required for ELO Validation)
+              </Label>
               <div className="space-y-2">
                 {rosterNicks.map((nick, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-muted-foreground w-6 text-center">#{idx + 1}</span>
+                    <span className="text-xs font-heading font-bold w-16 text-[var(--ink-dim)]">
+                      {idx === 0 ? 'Captain' : `Player ${idx + 1}`}
+                    </span>
                     <Input
-                      placeholder={idx === 0 ? 'Captain Nickname' : `Player ${idx + 1} Nickname`}
+                      placeholder={idx === 0 ? currentProfile.faceit_nickname : `Player ${idx + 1} FACEIT Tag`}
                       value={nick}
                       onChange={(e) => handleRosterNickChange(idx, e.target.value)}
-                      className="bg-secondary border-border text-xs h-8"
+                      className="bg-[#0b0a08] border-[var(--line)] text-[var(--ink)] font-heading text-sm h-8"
                     />
-                    {idx === 0 && (
-                      <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-                        Captain
-                      </Badge>
-                    )}
                   </div>
                 ))}
               </div>
-              <p className="text-[11px] text-muted-foreground mt-2">
-                Tip: Try demo players like <code>s1mple</code>, <code>ZywOo</code>, <code>CasualFragger</code>,{' '}
-                <code>NoobMaster69</code>, <code>donk</code>, <code>m0NESY</code>.
-              </p>
             </div>
 
-            {regError && (
-              <div className="p-3 rounded-lg bg-destructive/15 border border-destructive/30 text-destructive text-xs flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                <span>{regError}</span>
-              </div>
-            )}
+            {regError && <p className="text-xs text-rose-400 font-heading">{regError}</p>}
+            {regSuccess && <p className="text-xs text-emerald-400 font-heading">{regSuccess}</p>}
 
-            {regSuccess && (
-              <div className="p-3 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2 font-bold">
-                <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                <span>{regSuccess}</span>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsRegisterOpen(false)}>
-                Cancel
+            <div className="pt-2 flex gap-3">
+              <Button
+                type="submit"
+                disabled={isVerifyingRoster}
+                className="flex-1 bg-[var(--orange)] hover:bg-[var(--orange-soft)] text-black font-heading font-bold"
+              >
+                {isVerifyingRoster ? 'Verifying Rosters...' : 'Submit Team Registration'}
               </Button>
-              <Button type="submit" disabled={isVerifyingRoster} className="bg-primary text-black font-bold">
-                {isVerifyingRoster ? 'Verifying with FACEIT...' : 'Submit Registration'}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsRegisterOpen(false)}
+                className="border-[var(--line)] text-[var(--ink)] hover:bg-[#1a140b] font-heading"
+              >
+                Cancel
               </Button>
             </div>
           </form>
