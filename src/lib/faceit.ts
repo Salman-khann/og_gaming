@@ -1,195 +1,84 @@
-export interface FaceitPlayerInfo {
-  id: string;
-  nickname: string;
-  avatar: string;
-  country: string;
-  elo: number;
-  level: number;
-  gameId: string;
+export interface FaceitPlayerInfo { id: string; nickname: string; avatar: string; country: string; elo: number; level: number; gameId: string }
+const cache = new Map<string, { data: FaceitPlayerInfo; expires: number }>();
+const inFlight = new Map<string, Promise<FaceitPlayerInfo | null>>();
+export class FaceitError extends Error {
+  constructor(message: string, public status: number) { super(message); }
 }
-
-// In-memory cache to respect rate limits
-const cache = new Map<string, { data: FaceitPlayerInfo; timestamp: number }>();
-const CACHE_TTL_MS = 1000 * 60 * 15; // 15 minutes
-
-export async function getFaceitPlayerByNickname(nickname: string): Promise<FaceitPlayerInfo | null> {
-  const normalized = nickname.trim().toLowerCase();
-  
-  // Check cache
-  const cached = cache.get(normalized);
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
-    return cached.data;
+function remember(data: FaceitPlayerInfo) {
+  for (const key of ['id:' + data.id, 'nickname:' + data.nickname.toLowerCase()]) {
+    if (cache.size >= 500) cache.delete(cache.keys().next().value!);
+    cache.set(key, { data, expires: Date.now() + 900000 });
   }
-
-  const apiKey = process.env.FACEIT_API_KEY;
-
-  if (apiKey) {
+}
+export function normalizeFaceitNickname(input: string): string {
+  let name = input.trim();
+  if (/^(?:https?:\/\/)?(?:www\.)?faceit\.com\//i.test(name)) {
+    const url = new URL(/^https?:\/\//i.test(name) ? name : 'https://' + name);
+    const parts = url.pathname.split('/').filter(Boolean), index = parts.indexOf('players');
+    if (!['faceit.com', 'www.faceit.com'].includes(url.hostname.toLowerCase()) || index < 0 || !parts[index + 1]) throw new Error('Enter a FACEIT nickname or player profile URL.');
+    name = decodeURIComponent(parts[index + 1]);
+  }
+  name = name.replace(/^@/, '');
+  if (!name || name.length > 40 || /[\s/?#]/.test(name)) throw new Error('Enter a FACEIT nickname or player profile URL.');
+  return name;
+}
+async function requestFaceit(path: string) {
+  const token = process.env.FACEIT_API_KEY;
+  if (!token || token.startsWith('your-')) throw new FaceitError('FACEIT verification is not configured. Please contact OG Gaming.', 503);
+  let response: Response;
+  try { response = await fetch('https://open.faceit.com/data/v4' + path, { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' }, signal: AbortSignal.timeout(8000), cache: 'no-store' }); }
+  catch { throw new FaceitError('FACEIT could not be reached. Please try again.', 503); }
+  if (response.status === 404) return null;
+  if ([401, 403].includes(response.status)) throw new FaceitError('FACEIT verification credentials need attention. Please contact OG Gaming.', 503);
+  if (response.status === 429) throw new FaceitError('FACEIT is receiving too many requests. Please try again shortly.', 429);
+  if (!response.ok) throw new FaceitError('FACEIT verification is temporarily unavailable. Please try again.', 503);
+  return response.json();
+}
+interface FaceitResponse { player_id: string; nickname: string; avatar?: string; country?: string; games?: { cs2?: { skill_level: number; faceit_elo: number } } }
+function playerInfo(json: FaceitResponse, name: string): FaceitPlayerInfo {
+  const game = json.games?.cs2;
+  if (!game || !Number.isInteger(game.skill_level) || game.skill_level < 1 || game.skill_level > 10 || !Number.isInteger(game.faceit_elo) || game.faceit_elo < 0) throw new Error(name + ' does not have a verified CS2 profile on FACEIT.');
+  if (!json.player_id || !json.nickname) throw new Error('FACEIT returned an incomplete profile for ' + name + '.');
+  return { id: json.player_id, nickname: json.nickname, avatar: json.avatar || '', country: json.country || '', elo: game.faceit_elo, level: game.skill_level, gameId: 'cs2' };
+}
+export async function verifyFaceitPlayer(input: string): Promise<FaceitPlayerInfo> {
+  const nickname = normalizeFaceitNickname(input), key = 'nickname:' + nickname.toLowerCase();
+  const cached = cache.get(key);
+  if (cached && cached.expires > Date.now()) return cached.data;
+  if (inFlight.has(key)) return (await inFlight.get(key))!;
+  const task = resolveNickname(nickname);
+  inFlight.set(key, task);
+  try { return await task; } finally { inFlight.delete(key); }
+}
+async function resolveNickname(nickname: string) {
+  let json = await requestFaceit('/players?nickname=' + encodeURIComponent(nickname));
+  if (!json) {
+    const search = await requestFaceit('/search/players?nickname=' + encodeURIComponent(nickname) + '&game=cs2&limit=50');
+    const exact = search?.items?.find((p: { nickname: string }) => p.nickname?.toLowerCase() === nickname.toLowerCase());
+    if (exact?.player_id) json = await requestFaceit('/players/' + encodeURIComponent(exact.player_id));
+  }
+  if (!json) throw new Error('FACEIT player "' + nickname + '" was not found. Check the nickname or paste their FACEIT profile URL.');
+  const data = playerInfo(json, nickname);
+  remember(data);
+  return data;
+}
+export async function getFaceitPlayerByNickname(input: string): Promise<FaceitPlayerInfo | null> {
+  try { return await verifyFaceitPlayer(input); } catch { return null; }
+}
+export async function getFaceitPlayerById(id: string, fresh = false): Promise<FaceitPlayerInfo | null> {
+  if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id)) return null;
+  const key = 'id:' + id;
+  const cached = cache.get(key);
+  if (!fresh && cached && cached.expires > Date.now()) return cached.data;
+  if (inFlight.has(key)) return inFlight.get(key)!;
+  const task = (async () => {
     try {
-      const res = await fetch(`https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(nickname)}`, {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          Accept: 'application/json',
-        },
-        next: { revalidate: 900 },
-      });
-
-      if (res.ok) {
-        const json = await res.json();
-        const cs2 = json.games?.cs2 || json.games?.csgo || {};
-        const playerInfo: FaceitPlayerInfo = {
-          id: json.player_id,
-          nickname: json.nickname,
-          avatar: json.avatar || 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?auto=format&fit=crop&w=150&q=80',
-          country: json.country || 'US',
-          elo: cs2.faceit_elo || 1000,
-          level: cs2.skill_level || Math.min(10, Math.max(1, Math.floor(((cs2.faceit_elo || 1000) - 800) / 150) + 1)),
-          gameId: 'cs2',
-        };
-
-        cache.set(normalized, { data: playerInfo, timestamp: Date.now() });
-        return playerInfo;
-      }
-    } catch (err) {
-      console.warn('[FACEIT API Failed - Falling back to local data]', err);
-    }
-  }
-
-  // Realistic mock players for testing / fallback
-  const mockDatabase: Record<string, FaceitPlayerInfo> = {
-    s1mple: {
-      id: 'f-s1mple-01',
-      nickname: 's1mple',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-      country: 'UA',
-      elo: 3650,
-      level: 10,
-      gameId: 'cs2',
-    },
-    zywoo: {
-      id: 'f-zywoo-02',
-      nickname: 'ZywOo',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
-      country: 'FR',
-      elo: 3580,
-      level: 10,
-      gameId: 'cs2',
-    },
-    donk: {
-      id: 'f-donk-03',
-      nickname: 'donk',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80',
-      country: 'RU',
-      elo: 3820,
-      level: 10,
-      gameId: 'cs2',
-    },
-    niko: {
-      id: 'f-niko-04',
-      nickname: 'NiKo',
-      avatar: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=150&q=80',
-      country: 'BA',
-      elo: 3420,
-      level: 10,
-      gameId: 'cs2',
-    },
-    m0nesy: {
-      id: 'f-monesy-05',
-      nickname: 'm0NESY',
-      avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&q=80',
-      country: 'RU',
-      elo: 3750,
-      level: 10,
-      gameId: 'cs2',
-    },
-    fallen: {
-      id: 'f-fallen-06',
-      nickname: 'FalleN',
-      avatar: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=150&q=80',
-      country: 'BR',
-      elo: 2650,
-      level: 9,
-      gameId: 'cs2',
-    },
-    apex: {
-      id: 'f-apex-07',
-      nickname: 'apEX',
-      avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=150&q=80',
-      country: 'FR',
-      elo: 2450,
-      level: 8,
-      gameId: 'cs2',
-    },
-    ropz: {
-      id: 'f-ropz-08',
-      nickname: 'ropz',
-      avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80',
-      country: 'EE',
-      elo: 3390,
-      level: 10,
-      gameId: 'cs2',
-    },
-    rain: {
-      id: 'f-rain-09',
-      nickname: 'rain',
-      avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=150&q=80',
-      country: 'NO',
-      elo: 2780,
-      level: 9,
-      gameId: 'cs2',
-    },
-    broky: {
-      id: 'f-broky-10',
-      nickname: 'broky',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-      country: 'LV',
-      elo: 3120,
-      level: 10,
-      gameId: 'cs2',
-    },
-    noobmaster: {
-      id: 'f-noobmaster-11',
-      nickname: 'NoobMaster69',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80',
-      country: 'SE',
-      elo: 750,
-      level: 2,
-      gameId: 'cs2',
-    },
-    casualfragger: {
-      id: 'f-casualfragger-12',
-      nickname: 'CasualFragger',
-      avatar: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?auto=format&fit=crop&w=150&q=80',
-      country: 'DE',
-      elo: 1120,
-      level: 4,
-      gameId: 'cs2',
-    },
-  };
-
-  if (mockDatabase[normalized]) {
-    return mockDatabase[normalized];
-  }
-
-  // Deterministic mock generation based on hash of nickname
-  let hash = 0;
-  for (let i = 0; i < nickname.length; i++) {
-    hash = (hash << 5) - hash + nickname.charCodeAt(i);
-    hash |= 0;
-  }
-  const positiveHash = Math.abs(hash);
-  const level = (positiveHash % 10) + 1;
-  const elo = 600 + level * 240 + (positiveHash % 120);
-
-  const generated: FaceitPlayerInfo = {
-    id: `usr-${positiveHash}`,
-    nickname,
-    avatar: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(nickname)}`,
-    country: 'PK',
-    elo,
-    level,
-    gameId: 'cs2',
-  };
-
-  cache.set(normalized, { data: generated, timestamp: Date.now() });
-  return generated;
+      const json = await requestFaceit('/players/' + encodeURIComponent(id));
+      const data = json ? playerInfo(json, json.nickname || id) : null;
+      if (!data || data.id !== id) return null;
+      remember(data); return data;
+    } catch { return null; }
+  })();
+  inFlight.set(key, task);
+  try { return await task; } finally { inFlight.delete(key); }
 }

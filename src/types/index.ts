@@ -14,56 +14,30 @@ export interface Profile {
   updated_at: string;
 }
 
-export interface Cabin {
-  id: string;
-  name: string;
-  slug: string;
-  pc_count: number;
-  specs: string;
-  hourly_rate: number;
-  is_active: boolean;
-  created_at: string;
-}
-
-export type SlotStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
-
-export interface SlotRequest {
-  id: string;
-  cabin_id: string;
-  cabin?: Cabin;
-  user_id: string;
-  user?: Profile;
-  start_time: string; // ISO string
-  end_time: string;   // ISO string
-  player_count: number;
-  status: SlotStatus;
-  notes?: string | null;
-  admin_notes?: string | null;
-  created_at: string;
-  updated_at: string;
-  approved_at?: string | null;
-}
-
 export type MatchType = 'solo_lfg' | 'team_vs_team' | 'gather_5v5';
 export type MatchStatus = 'open' | 'matched' | 'closed' | 'cancelled';
 
 export interface MatchPlayer {
+  team_id?: string;
+  team_name?: string;
   id: string;
   nickname: string;
-  level: number;
-  elo: number;
+  level: number | null;
+  elo: number | null;
   role?: string;
 }
 
 export interface MatchRequest {
+  balanced_teams?: {a:MatchPlayer[];b:MatchPlayer[];difference:number}|null;
   id: string;
-  creator_id: string;
+  creator_id: string | null;
+  can_delete?: boolean;
+  host_name?: string | null;
+  contact_phone?: string | null;
   creator?: Profile;
   title: string;
   type: MatchType;
   description?: string | null;
-  preferred_cabin_id?: string | null;
-  preferred_cabin?: Cabin;
   scheduled_time?: string | null;
   min_faceit_level: number;
   max_faceit_level: number;
@@ -78,6 +52,9 @@ export interface MatchRequest {
 export type TournamentStatus = 'draft' | 'upcoming' | 'ongoing' | 'completed' | 'cancelled';
 
 export interface Tournament {
+  bracket_type: 'single' | 'double';
+  checkin_open: string | null;
+  checkin_close: string | null;
   id: string;
   title: string;
   slug: string;
@@ -91,6 +68,8 @@ export interface Tournament {
   registration_deadline: string;
   status: TournamentStatus;
   prize_pool: string;
+  entry_fee: number;
+  payment_instructions: string;
   rules: string;
   registrations_count?: number;
   created_at: string;
@@ -100,23 +79,29 @@ export interface Tournament {
 export interface RegistrationRosterMember {
   nickname: string;
   faceit_id?: string;
-  level: number;
-  elo: number;
+  game_id?: string;
+  level: number | null;
+  elo: number | null;
 }
 
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Registration {
+  can_manage?: boolean;
+  contact?: {captain_name:string;email:string;phone:string;city:string;notes:string} | null;
+  amount_due: number;
+  no_show: boolean;
   id: string;
   tournament_id: string;
   tournament?: Tournament;
   team_id?: string | null;
-  captain_id: string;
+  captain_id: string | null;
   captain?: Profile;
   team_name: string;
   roster_details: RegistrationRosterMember[];
   avg_faceit_level: number;
   status: RegistrationStatus;
+  payment_status: 'not_required' | 'pending' | 'verified';
   checked_in: boolean;
   checked_in_at?: string | null;
   created_at: string;
@@ -134,3 +119,5 @@ export interface NotificationLog {
   created_at: string;
   sent_at?: string | null;
 }
+
+export interface TournamentMatch { id: string; tournament_id: string; bracket: 'winners' | 'losers' | 'final' | 'reset'; round: number; position: number; team_a: string | null; team_b: string | null; winner_id: string | null; score_a: number | null; score_b: number | null; status: 'pending' | 'completed' | 'bye'; node_key?: string | null; source_a?: string | null; source_b?: string | null; outcome_a?: 'winner' | 'loser'; outcome_b?: 'winner' | 'loser' }

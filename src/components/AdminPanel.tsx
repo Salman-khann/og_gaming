@@ -1,318 +1,62 @@
 'use client';
+import { useState } from 'react';
+import { TournamentBracket } from './TournamentBracket';
+import { OperationsPanel } from './OperationsPanel';
+import type { Registration, Tournament, TournamentStatus } from '@/types';
+type Props = { registrations: Registration[]; tournaments: Tournament[]; onDataRefresh: () => void };
+type Form = { bracket_type: 'single' | 'double'; checkin_open: string; checkin_close: string; title: string; slug: string; description: string; game: string; format: string; min_level: number; max_level: number; max_teams: number; start_date: string; registration_deadline: string; status: TournamentStatus; prize_pool: string; rules: string; entry_fee: number; payment_instructions: string };
+const blank: Form = { bracket_type:'single',checkin_open:'',checkin_close:'', title: '', slug: '', description: '', game: 'Counter-Strike 2', format: '5v5 Single Elimination', min_level: 1, max_level: 10, max_teams: 8, start_date: '', registration_deadline: '', status: 'draft', prize_pool: '', rules: '', entry_fee: 0, payment_instructions: '' };
+function localDate(iso: string) { const date = new Date(iso); return new Date(date.getTime() + 5 * 3600000).toISOString().slice(0, 16); }
+export function TournamentAdminPanel({ registrations, tournaments, onDataRefresh }: Props) {
+  const [form, setForm] = useState<Form>(blank);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [bracketEvent, setBracketEvent] = useState<Tournament | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  async function mutate(url: string, method: string, body: unknown) {
+    setBusy(true); setError(''); setMessage('');
+    try {
+      const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || 'Unable to save changes.');
+      setMessage('Changes saved.'); onDataRefresh(); return true;
+    } catch (error) { setError(error instanceof Error ? error.message : 'Unable to connect.'); return false; }
+    finally { setBusy(false); }
+  }
+  function edit(t: Tournament) {
+    setEditing(t.id);
+    setForm({ ...t, bracket_type:t.bracket_type||'single',checkin_open:t.checkin_open?localDate(t.checkin_open):'',checkin_close:t.checkin_close?localDate(t.checkin_close):'', start_date: localDate(t.start_date), registration_deadline: localDate(t.registration_deadline), description: t.description || '', rules: t.rules || '', prize_pool: t.prize_pool || '', entry_fee: Number(t.entry_fee || 0), payment_instructions: t.payment_instructions || '' });
+    document.getElementById('tournament-editor')?.scrollIntoView({ block: 'start' });
+  }
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    const success = await mutate('/api/tournaments', editing ? 'PATCH' : 'POST', { ...form, action: 'create', tournament_id: editing, start_date: new Date(form.start_date+'+05:00').toISOString(), registration_deadline: new Date(form.registration_deadline+'+05:00').toISOString(),checkin_open:form.checkin_open?new Date(form.checkin_open+'+05:00').toISOString():null,checkin_close:form.checkin_close?new Date(form.checkin_close+'+05:00').toISOString():null });
+    if (success) { setEditing(null); setForm(blank); }
+  }
+  const change = (key: keyof Form, value: string | number) => setForm(previous => ({ ...previous, [key]: value }));
+  return <div className="space-y-6">
 
-import React, { useState } from 'react';
-import { SlotRequest, Registration, Profile, Cabin, Tournament } from '@/types';
-import {
-  Shield,
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertTriangle,
-  UserCheck,
-  UserX,
-  Send,
-  Calendar,
-  Trophy,
-  Users,
-  Bell,
-  RefreshCw,
-  Sparkles,
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-
-interface AdminPanelProps {
-  bookings: SlotRequest[];
-  registrations: Registration[];
-  tournaments: Tournament[];
-  cabins: Cabin[];
-  profiles: Profile[];
-  onDataRefresh: () => void;
+    {error && <p role="alert" className="error-message">{error}</p>}{message && <p role="status" className="success-message">{message}</p>}
+    <div className="admin-grid"><section className="admin-section" id="tournament-editor"><h2>{editing ? 'Edit tournament' : 'Create tournament'}</h2><form onSubmit={save} className="field-grid">
+      <label className="field wide">Title<input required maxLength={120} value={form.title} onChange={e => change('title', e.target.value)} /></label>
+      <label className="field wide">URL slug<input required pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="og-community-cup" value={form.slug} onChange={e => change('slug', e.target.value)} /></label>
+      <label className="field">Game<input required value={form.game} onChange={e => change('game', e.target.value)} /></label>
+      <label className="field">Format<input required value={form.format} onChange={e => change('format', e.target.value)} /></label>
+      <label className="field">Bracket type<select value={form.bracket_type} onChange={e=>change('bracket_type',e.target.value)}><option value="single">Single elimination</option><option value="double">Double elimination</option></select></label><label className="field">Check-in opens (PKT, optional)<input type="datetime-local" value={form.checkin_open} onChange={e=>change('checkin_open',e.target.value)}/></label><label className="field">Check-in closes (PKT, optional)<input type="datetime-local" value={form.checkin_close} onChange={e=>change('checkin_close',e.target.value)}/></label><label className="field">Start date &amp; time (PKT)<input type="datetime-local" required value={form.start_date} onChange={e => change('start_date', e.target.value)} /></label>
+      <label className="field">Registration deadline<input type="datetime-local" required value={form.registration_deadline} onChange={e => change('registration_deadline', e.target.value)} /></label>
+      <label className="field">Team capacity<input type="number" min={2} max={128} required value={form.max_teams} onChange={e => change('max_teams', Number(e.target.value))} /></label>
+      <label className="field">Status<select value={form.status} onChange={e => change('status', e.target.value)}>{(['draft', 'upcoming', 'ongoing', 'completed', 'cancelled'] as const).map(status => <option key={status}>{status}</option>)}</select></label>
+      <label className="field">Entry fee per team (PKR)<input type="number" min={0} max={99999999} step="0.01" required disabled={!!editing && registrations.some(r => r.tournament_id === editing)} value={form.entry_fee} onChange={e => change('entry_fee', Number(e.target.value))} /><span className="muted text-sm">The fee is fixed once a team registers.</span></label>
+      <label className="field wide">Payment instructions<textarea rows={3} placeholder="Payment account details and instructions for teams" value={form.payment_instructions} onChange={e => change('payment_instructions', e.target.value)} /></label>
+      <label className="field wide">Prize pool<input value={form.prize_pool} onChange={e => change('prize_pool', e.target.value)} /></label>
+      <label className="field wide">Description<textarea rows={3} value={form.description} onChange={e => change('description', e.target.value)} /></label>
+      <label className="field wide">Rules<textarea rows={4} value={form.rules} onChange={e => change('rules', e.target.value)} /></label>
+      <div className="actions field wide"><button className="button" disabled={busy}>{editing ? 'Save tournament' : 'Create tournament'}</button>{editing && <button className="button secondary" type="button" onClick={() => { setEditing(null); setForm(blank); }}>Cancel edit</button>}</div>
+    </form></section><section className="admin-section"><h2>Tournaments ({tournaments.length})</h2>{!tournaments.length && <p className="muted">Create your first tournament.</p>}{tournaments.map(t => <article key={t.id} className="admin-item"><h3>{t.title}</h3><p className="muted">{t.status} · {t.registrations_count || 0}/{t.max_teams} teams</p><p className="muted">{new Date(t.start_date).toLocaleString('en-PK', { timeZone: 'Asia/Karachi' })} PKT</p><div className="actions"><button className="button secondary" disabled={busy} onClick={() => edit(t)}>Edit tournament</button><button className="button secondary" disabled={busy} onClick={() => setBracketEvent(t)}>Manage bracket</button></div></article>)}</section></div>
+    {bracketEvent && <section className="admin-section"><h2>{bracketEvent.title}</h2><TournamentBracket key={bracketEvent.id} tournamentId={bracketEvent.id} admin onChanged={onDataRefresh} /></section>}
+    <section className="admin-section"><h2>Team registrations ({registrations.length})</h2>{!registrations.length && <p className="muted">No registrations yet.</p>}{registrations.map(r => <article key={r.id} className="admin-item"><h3>{r.team_name}</h3><p className="muted">{r.tournament?.title || tournaments.find(t => t.id === r.tournament_id)?.title} · {r.status} · {r.checked_in ? 'Checked in' : 'Not checked in'}</p>{r.contact&&<div className="registration-contact"><strong>Captain: {r.contact.captain_name}</strong><span>{r.contact.phone} · {r.contact.email}</span>{r.contact.city&&<span>{r.contact.city}</span>}{r.contact.notes&&<p>{r.contact.notes}</p>}</div>}<p className="muted">Payment: {r.payment_status === 'verified' ? 'Verified' : r.payment_status === 'pending' ? 'Awaiting screenshot / verification' : 'Free entry'}</p><p className="muted">{r.roster_details.map(p => p.nickname + (p.game_id?" — "+p.game_id:"")).join(', ')}</p><div className="actions">{r.payment_status === 'pending' && <button className="button" disabled={busy} onClick={() => void mutate('/api/tournaments', 'PATCH', { action: 'verify_payment', registration_id: r.id })}>Verify payment screenshot</button>}{r.status !== 'approved' && <button className="button" disabled={busy || r.payment_status === 'pending'} onClick={() => void mutate('/api/tournaments', 'PATCH', { registration_id: r.id, status: 'approved' })}>Approve</button>}{r.status !== 'rejected' && <button className="button secondary" disabled={busy} onClick={() => void mutate('/api/tournaments', 'PATCH', { registration_id: r.id, status: 'rejected' })}>Reject</button>}{r.status === 'approved' && <button className="button secondary" disabled={busy} onClick={() => void mutate('/api/tournaments', 'PATCH', { registration_id: r.id, action: 'toggle_checkin' })}>{r.checked_in ? 'Undo check-in' : 'Check in'}</button>}</div></article>)}</section>
+  </div>;
 }
 
-export function AdminPanel({
-  bookings,
-  registrations,
-  tournaments,
-  cabins,
-  profiles,
-  onDataRefresh,
-}: AdminPanelProps) {
-  const [processingId, setProcessingId] = useState<string | null>(null);
-  const [actionMessage, setActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [telegramStatus, setTelegramStatus] = useState<string>('');
-
-  const pendingBookings = bookings.filter((b) => b.status === 'pending');
-  const pendingRegs = registrations.filter((r) => r.status === 'pending');
-
-  const getLevelBadgeClass = (lvl: number) => `badge-lvl-${lvl}`;
-
-  const handleBookingAction = async (bookingId: string, status: 'approved' | 'rejected') => {
-    setProcessingId(bookingId);
-    setActionMessage(null);
-
-    try {
-      const res = await fetch('/api/bookings', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ booking_id: bookingId, status }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setActionMessage({ type: 'error', text: data.error || 'Failed to update slot status' });
-        setProcessingId(null);
-        return;
-      }
-
-      setActionMessage({
-        type: 'success',
-        text: `Slot #${bookingId.slice(0, 6)} has been ${status.toUpperCase()}!`,
-      });
-      onDataRefresh();
-    } catch (err) {
-      setActionMessage({ type: 'error', text: 'Network error updating slot' });
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  const handleRegistrationAction = async (regId: string, status: 'approved' | 'rejected') => {
-    setProcessingId(regId);
-    setActionMessage(null);
-
-    try {
-      const res = await fetch('/api/tournaments', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ registration_id: regId, status }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setActionMessage({ type: 'error', text: data.error || 'Failed to update registration' });
-        setProcessingId(null);
-        return;
-      }
-
-      setActionMessage({
-        type: 'success',
-        text: `Team registration #${regId.slice(0, 6)} has been ${status.toUpperCase()}!`,
-      });
-      onDataRefresh();
-    } catch (err) {
-      setActionMessage({ type: 'error', text: 'Network error updating registration' });
-    } finally {
-      setProcessingId(null);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      {/* Admin Controls Top Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-xl bg-[#151109] border border-[var(--line)]">
-        <div>
-          <div className="flex items-center gap-2">
-            <Shield className="w-5 h-5 text-[var(--orange)]" />
-            <h3 className="text-xl font-heading font-bold text-[var(--ink)]">OG Arena Admin Center</h3>
-          </div>
-          <p className="text-xs text-[var(--ink-dim)] mt-1">
-            Manage stage slots, approve team rosters, and broadcast tournament alerts for Bahadurabad Hall.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onDataRefresh}
-            className="px-3.5 py-1.5 rounded-lg border border-[var(--line)] hover:border-[var(--orange)] text-xs text-[var(--ink)] font-heading flex items-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <RefreshCw className="w-3.5 h-3.5 text-[var(--orange)]" />
-            <span>Refresh State</span>
-          </button>
-        </div>
-      </div>
-
-      {actionMessage && (
-        <div
-          className={`p-3 rounded-lg text-xs font-heading font-bold flex items-center gap-2 ${
-            actionMessage.type === 'success'
-              ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-500/30'
-              : 'bg-rose-950/30 text-rose-400 border border-rose-500/30'
-          }`}
-        >
-          {actionMessage.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-          <span>{actionMessage.text}</span>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <Tabs defaultValue="bookings" className="w-full space-y-4">
-        <TabsList className="bg-[#151109] border border-[var(--line)] p-1 rounded-lg">
-          <TabsTrigger
-            value="bookings"
-            className="text-xs font-heading font-bold data-[state=active]:bg-[var(--orange)] data-[state=active]:text-black text-[var(--ink-dim)]"
-          >
-            Pending Slots ({pendingBookings.length})
-          </TabsTrigger>
-          <TabsTrigger
-            value="registrations"
-            className="text-xs font-heading font-bold data-[state=active]:bg-[var(--orange)] data-[state=active]:text-black text-[var(--ink-dim)]"
-          >
-            Tournament Teams ({pendingRegs.length})
-          </TabsTrigger>
-          <TabsTrigger
-            value="all_bookings"
-            className="text-xs font-heading font-bold data-[state=active]:bg-[var(--orange)] data-[state=active]:text-black text-[var(--ink-dim)]"
-          >
-            All Bookings ({bookings.length})
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Tab 1: Pending Bookings */}
-        <TabsContent value="bookings" className="space-y-3">
-          {pendingBookings.length === 0 ? (
-            <div className="p-12 rounded-xl bg-[#151109] border border-[var(--line)] text-center text-xs text-[var(--ink-dim)] font-heading">
-              No pending slot reservations at this moment.
-            </div>
-          ) : (
-            pendingBookings.map((b) => {
-              const cabin = cabins.find((c) => c.id === b.cabin_id);
-              const user = profiles.find((p) => p.id === b.user_id);
-              const startH = new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-              const endH = new Date(b.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-              return (
-                <div
-                  key={b.id}
-                  className="p-5 rounded-xl bg-[#151109] border border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4"
-                >
-                  <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-xs font-heading font-bold text-[var(--orange)]">
-                        {cabin?.name || 'Cabin Slot'}
-                      </span>
-                      <span className="text-xs text-[var(--ink-dim)] font-heading">
-                        • {startH} - {endH}
-                      </span>
-                    </div>
-
-                    <div className="text-sm font-heading font-bold text-[var(--ink)]">
-                      Requester: {user?.faceit_nickname || b.user_id} ({b.player_count} Players)
-                    </div>
-                    {b.notes && <p className="text-xs text-[var(--ink-dim)] mt-0.5">Notes: {b.notes}</p>}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleBookingAction(b.id, 'approved')}
-                      disabled={processingId === b.id}
-                      className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-heading font-bold transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span>Approve</span>
-                    </button>
-                    <button
-                      onClick={() => handleBookingAction(b.id, 'rejected')}
-                      disabled={processingId === b.id}
-                      className="px-4 py-2 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 text-xs font-heading font-bold transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                    >
-                      <XCircle className="w-3.5 h-3.5" />
-                      <span>Reject</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </TabsContent>
-
-        {/* Tab 2: Tournament Registrations */}
-        <TabsContent value="registrations" className="space-y-3">
-          {pendingRegs.length === 0 ? (
-            <div className="p-12 rounded-xl bg-[#151109] border border-[var(--line)] text-center text-xs text-[var(--ink-dim)] font-heading">
-              No pending team tournament registrations.
-            </div>
-          ) : (
-            pendingRegs.map((r) => {
-              const tourney = tournaments.find((t) => t.id === r.tournament_id);
-              const captain = profiles.find((p) => p.id === r.captain_id);
-
-              return (
-                <div
-                  key={r.id}
-                  className="p-5 rounded-xl bg-[#151109] border border-[var(--line)] flex flex-col md:flex-row md:items-center justify-between gap-4"
-                >
-                  <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <span className="text-xs font-heading font-bold text-[var(--orange)]">
-                        {tourney?.title || 'Tournament'}
-                      </span>
-                      <span className="text-xs text-amber-400 font-heading">Pending Review</span>
-                    </div>
-
-                    <div className="text-base font-heading font-bold text-[var(--ink)]">
-                      Team: {r.team_name}
-                    </div>
-                    <div className="text-xs text-[var(--ink-dim)] font-heading mt-1">
-                      Captain: {captain?.faceit_nickname || r.captain_id} • 5-Player Verified Roster
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleRegistrationAction(r.id, 'approved')}
-                      disabled={processingId === r.id}
-                      className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-heading font-bold transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                      <span>Approve Roster</span>
-                    </button>
-                    <button
-                      onClick={() => handleRegistrationAction(r.id, 'rejected')}
-                      disabled={processingId === r.id}
-                      className="px-4 py-2 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 text-xs font-heading font-bold transition-all disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
-                    >
-                      <XCircle className="w-3.5 h-3.5" />
-                      <span>Reject</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </TabsContent>
-
-        {/* Tab 3: All Bookings History */}
-        <TabsContent value="all_bookings" className="space-y-2">
-          {bookings.map((b) => {
-            const cabin = cabins.find((c) => c.id === b.cabin_id);
-            const startH = new Date(b.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const endH = new Date(b.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-            return (
-              <div
-                key={b.id}
-                className="p-3.5 rounded-lg bg-[#0b0a08] border border-[var(--line)] flex items-center justify-between text-xs font-heading"
-              >
-                <div>
-                  <span className="font-bold text-[var(--ink)]">{cabin?.name.split(' - ')[0] || 'Cabin'}</span>
-                  <span className="text-[var(--ink-dim)] ml-2">
-                    {startH} - {endH}
-                  </span>
-                  {b.notes && <span className="text-[var(--ink-dim)] ml-2">({b.notes})</span>}
-                </div>
-
-                <div>
-                  {b.status === 'approved' && <span className="text-emerald-400 font-bold">Approved</span>}
-                  {b.status === 'pending' && <span className="text-amber-400 font-bold">Pending</span>}
-                  {b.status === 'rejected' && <span className="text-rose-400 font-bold">Rejected</span>}
-                </div>
-              </div>
-            );
-          })}
-        </TabsContent>
-      </Tabs>
-    </div>
-  );
-}
+export function AdminPanel(props:Props){return <OperationsPanel tournamentContent={<TournamentAdminPanel {...props}/>}/>;}

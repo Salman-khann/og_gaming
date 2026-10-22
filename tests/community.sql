@@ -1,0 +1,41 @@
+BEGIN;
+DO $$
+DECLARE captain uuid:=gen_random_uuid(); admin_id uuid:=gen_random_uuid(); outsider uuid:=gen_random_uuid(); player uuid; squad jsonb; invite jsonb; entry jsonb; event uuid:=gen_random_uuid(); denied boolean; i integer; roster jsonb:='[]';
+BEGIN
+ INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES(captain,captain::text||'@test.invalid','{}'),(admin_id,admin_id::text||'@test.invalid','{}'),(outsider,outsider::text||'@test.invalid','{}');
+ UPDATE public.profiles SET faceit_id=id::text,faceit_level=5,faceit_elo=1500 WHERE id IN(captain,admin_id,outsider);
+ UPDATE public.profiles SET role='admin' WHERE id=admin_id;
+ SET LOCAL ROLE anon;
+ denied:=false;BEGIN PERFORM public.community_action(captain,'create_team','{"name":"Unauthorized"}');EXCEPTION WHEN insufficient_privilege THEN denied:=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Public team mutation allowed';END IF;
+ RESET ROLE;
+ SET LOCAL ROLE service_role;
+ squad:=public.community_action(captain,'create_team','{"name":"Consent squad"}');
+ roster:=jsonb_build_array(jsonb_build_object('faceit_id',captain,'nickname','Captain','level',5,'elo',1500));
+ FOR i IN 1..4 LOOP
+  RESET ROLE;player:=gen_random_uuid();INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES(player,player::text||'@test.invalid','{}');UPDATE public.profiles SET faceit_id=player::text,faceit_level=5,faceit_elo=1500 WHERE id=player;
+  SET LOCAL ROLE service_role;
+  invite:=public.community_action(captain,'invite',jsonb_build_object('team_id',squad->>'id','faceit_id',player,'nickname','Player '||i));
+  denied:=false;BEGIN PERFORM public.community_action(outsider,'accept',jsonb_build_object('invitation_id',invite->>'id'));EXCEPTION WHEN raise_exception THEN denied:=true;END;
+  IF NOT denied THEN RAISE EXCEPTION 'Another FACEIT account accepted invitation';END IF;
+  PERFORM public.community_action(player,'accept',jsonb_build_object('invitation_id',invite->>'id'));
+  roster:=roster||jsonb_build_array(jsonb_build_object('faceit_id',player,'nickname','Player '||i,'level',5,'elo',1500));
+ END LOOP;
+ INSERT INTO public.tournaments(id,title,slug,start_date,registration_deadline,status,entry_fee,checkin_open,checkin_close) VALUES(event,'Consent fixture',event::text,now()+interval '1 hour',now()+interval '30 minutes','upcoming',1000,now()-interval '1 minute',now()+interval '30 minutes');
+ entry:=public.register_owned_team(captain,event,(squad->>'id')::uuid,roster);
+ IF (entry->>'amount_due')::numeric<>1000 THEN RAISE EXCEPTION 'Tournament fee incorrect';END IF;
+ denied:=false;BEGIN PERFORM public.community_action(captain,'remove_member',jsonb_build_object('team_id',squad->>'id','member_id',invite->>'id'));EXCEPTION WHEN raise_exception THEN denied:=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Active tournament roster unlocked';END IF;
+ PERFORM public.set_registration_payment((entry->>'id')::uuid,'verified');
+ RESET ROLE;PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);SET LOCAL ROLE authenticated;PERFORM public.review_arena_registration((entry->>'id')::uuid,'approved');RESET ROLE;SET LOCAL ROLE service_role;
+ denied:=false;BEGIN PERFORM public.community_action(outsider,'checkin',jsonb_build_object('registration_id',entry->>'id'));EXCEPTION WHEN raise_exception THEN denied:=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Outsider checked in team';END IF;
+ PERFORM public.community_action(captain,'checkin',jsonb_build_object('registration_id',entry->>'id'));
+ denied:=false;BEGIN PERFORM public.community_action(admin_id,'set_role',jsonb_build_object('user_id',admin_id,'role','player','reason','Self demotion'));EXCEPTION WHEN raise_exception THEN denied:=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Last admin self-demoted';END IF;
+ PERFORM public.community_action(admin_id,'set_role',jsonb_build_object('user_id',outsider,'role','banned','reason','Fixture'));
+ IF NOT public.consume_rate_limit('fixture',1,60) OR public.consume_rate_limit('fixture',1,60) THEN RAISE EXCEPTION 'Rate limit failed';END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.notifications_log WHERE status='pending') THEN RAISE EXCEPTION 'Admin notices not queued';END IF;
+ RESET ROLE;
+END $$;
+ROLLBACK;

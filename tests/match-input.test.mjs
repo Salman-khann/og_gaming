@@ -1,0 +1,20 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+async function load(path) { const source = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText; return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64')); }
+const { normalizePhone, futureMatchTime } = await load('../src/lib/match-input.ts');
+assert.equal(normalizePhone('0300 1234567'), '+923001234567');
+assert.equal(normalizePhone('+92 (300) 123-4567'), '+923001234567');
+assert.equal(normalizePhone('00923001234567'), '+923001234567');
+for (const phone of [null, '', '123', 'phone', '+00000000000', '+9230012345678912345']) assert.throws(() => normalizePhone(phone));
+const now = Date.parse('2026-10-08T12:00:00Z');
+assert.equal(futureMatchTime('2026-10-08T18:00:00+05:00', now), '2026-10-08T13:00:00.000Z');
+for (const time of [null, '', 'invalidZ', '2026-10-08T12:00:00Z', '2026-10-08T11:00:00Z', '2026-10-09T12:00:00']) assert.throws(() => futureMatchTime(time, now));
+const { steamNameFromXml } = await load('../src/lib/steam-profile.ts');
+assert.equal(steamNameFromXml('<profile><steamID><![CDATA[Actual Player Name]]></steamID></profile>'), 'Actual Player Name');
+assert.equal(steamNameFromXml('<steamID>A &amp; B</steamID>'), 'A & B');
+assert.equal(steamNameFromXml('<error>Unavailable</error>'), null);
+const { statNumber } = await load('../src/lib/faceit-stats.ts');
+assert.equal(statNumber('58%'), 58); assert.equal(statNumber('1.24'), 1.24); assert.equal(statNumber('0'), 0);
+for (const stat of [null, undefined, '', 'unavailable', -1, Infinity]) assert.equal(statNumber(stat), null);
+console.log('Phone validation, expiry time, Steam display names and FACEIT stat parsing tests passed.');

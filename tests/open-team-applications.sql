@@ -1,0 +1,32 @@
+BEGIN;
+DO $$
+DECLARE event uuid:=gen_random_uuid(); user_id uuid:=gen_random_uuid(); entry jsonb; signed_entry jsonb; roster jsonb:='[]'; i integer; game uuid; denied boolean;
+BEGIN
+ INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES(user_id,user_id::text||'@test.invalid','{}');
+ INSERT INTO public.tournaments(id,title,slug,start_date,registration_deadline,status,entry_fee,min_level,max_level,checkin_open,checkin_close) VALUES(event,'Open-entry fixture',event::text,now()+interval '2 hours',now()+interval '1 hour','upcoming',500,8,10,now()-interval '1 minute',now()+interval '2 hours');
+ FOR i IN 1..5 LOOP roster:=roster||jsonb_build_array(jsonb_build_object('nickname','Player '||i,'level',NULL,'elo',NULL));END LOOP;
+ SET LOCAL ROLE service_role;
+ entry:=public.submit_team_application(NULL,event,jsonb_build_object('team_name','Guest squad','captain_name','Guest captain','phone','+923000000055','email','captain@test.invalid','players',roster,'accepted_rules',true),repeat('a',64));
+ IF entry->>'captain_id' IS NOT NULL OR (entry->>'amount_due')::numeric<>500 OR entry->>'payment_status'<>'pending' THEN RAISE EXCEPTION 'Guest application or fee snapshot incorrect';END IF;
+ signed_entry:=public.submit_team_application(user_id,event,jsonb_build_object('team_name','Email squad','captain_name','Email captain','phone','+923000000056','email','email@test.invalid','players',roster,'accepted_rules',true),repeat('b',64));
+ IF signed_entry->>'captain_id'<>user_id::text THEN RAISE EXCEPTION 'Unlinked email player could not register';END IF;
+ denied:=false;BEGIN PERFORM public.submit_team_application(NULL,event,jsonb_build_object('team_name','Duplicate contact','captain_name','Guest captain','phone','+923000000055','email','captain@test.invalid','players',roster,'accepted_rules',true),repeat('c',64));EXCEPTION WHEN raise_exception THEN denied:=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Duplicate captain contact was accepted';END IF;
+ PERFORM public.set_registration_payment((entry->>'id')::uuid,'verified');
+ UPDATE public.registrations SET status='approved' WHERE id=(entry->>'id')::uuid;
+ PERFORM public.checkin_team_application((entry->>'id')::uuid);
+ IF NOT EXISTS(SELECT 1 FROM public.registrations WHERE id=(entry->>'id')::uuid AND checked_in) THEN RAISE EXCEPTION 'Guest check-in failed';END IF;
+ PERFORM public.set_registration_payment((signed_entry->>'id')::uuid,'verified');
+ UPDATE public.registrations SET status='approved' WHERE id=(signed_entry->>'id')::uuid;
+ PERFORM public.checkin_team_application((signed_entry->>'id')::uuid);
+ PERFORM public.create_competition_bracket(event,jsonb_build_array(jsonb_build_object('key','W1-1','bracket','winners','round',1,'position',1,'team_a',entry->>'id','team_b',signed_entry->>'id','outcome_a','winner','outcome_b','winner')));
+ SELECT id INTO game FROM public.tournament_matches WHERE tournament_id=event;
+ PERFORM public.record_competition_result(game,13,7);
+ IF NOT EXISTS(SELECT 1 FROM public.tournaments WHERE id=event AND status='completed') OR NOT EXISTS(SELECT 1 FROM public.tournament_matches WHERE id=game AND winner_id=(entry->>'id')::uuid) THEN RAISE EXCEPTION 'Guest team could not win the competition';END IF;
+ RESET ROLE;SET LOCAL ROLE anon;
+ denied:=false;BEGIN PERFORM phone FROM public.registration_contacts;EXCEPTION WHEN insufficient_privilege THEN denied:=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Application contacts exposed anonymously';END IF;
+ RESET ROLE;
+ IF has_function_privilege('authenticated','public.submit_team_application(uuid,uuid,jsonb,text)','EXECUTE') OR has_function_privilege('anon','public.checkin_team_application(uuid)','EXECUTE') THEN RAISE EXCEPTION 'Privileged application RPC exposed';END IF;
+END $$;
+ROLLBACK;

@@ -1,0 +1,26 @@
+{
+  "scope": "Local production preview with hosted database, eight sequential warm reads per route; not a production load test.",
+  "results": [
+    {
+      "path": "/api/leaderboard",
+      "samples": 8,
+      "median_ms": 146,
+      "p95_ms": 173,
+      "response_bytes": 33
+    },
+    {
+      "path": "/api/matches",
+      "samples": 8,
+      "median_ms": 144,
+      "p95_ms": 151,
+      "response_bytes": 750
+    },
+    {
+      "path": "/api/players",
+      "samples": 8,
+      "median_ms": 134,
+      "p95_ms": 144,
+      "response_bytes": 281
+    }
+  ]
+}

@@ -22,6 +22,7 @@ export function CyberBackground() {
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
+    const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     let animationFrameId: number;
     let width = (canvas.width = window.innerWidth);
@@ -101,7 +102,7 @@ export function CyberBackground() {
         const dx = mouse.x - p.x;
         const dy = mouse.y - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < mouse.radius) {
+        if (dist > 0 && dist < mouse.radius) {
           const force = (1 - dist / mouse.radius) * 1.5;
           p.x -= (dx / dist) * force;
           p.y -= (dy / dist) * force;
@@ -155,10 +156,19 @@ export function CyberBackground() {
       animationFrameId = requestAnimationFrame(render);
     };
 
-    render();
+    const syncAnimation = () => {
+      cancelAnimationFrame(animationFrameId);
+      if (document.visibilityState === 'visible' && !motion.matches) render();
+      else ctx.clearRect(0, 0, width, height);
+    };
+    document.addEventListener('visibilitychange', syncAnimation);
+    motion.addEventListener('change', syncAnimation);
+    syncAnimation();
 
     return () => {
       cancelAnimationFrame(animationFrameId);
+      document.removeEventListener('visibilitychange', syncAnimation);
+      motion.removeEventListener('change', syncAnimation);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseleave', handleMouseLeave);
