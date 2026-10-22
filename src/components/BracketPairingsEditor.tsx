@@ -1,8 +1,8 @@
 'use client';
 import { useState } from 'react';
-import { ArrowLeftRight, Check, RotateCcw, X } from 'lucide-react';
+import { ArrowLeftRight, Check, RotateCcw, Shuffle, X } from 'lucide-react';
 import type { TournamentMatch } from '@/types';
-import { automaticPairings, currentPairings, validatePairings, type OpeningPairing } from '@/lib/bracket-pairings';
+import { automaticPairings, randomPairings, currentPairings, validatePairings, type OpeningPairing } from '@/lib/bracket-pairings';
 import styles from './TournamentBracket.module.css';
 
 export function BracketPairingsEditor({ matches, teams, busy, onSave, onClose }: {
@@ -16,7 +16,7 @@ export function BracketPairingsEditor({ matches, teams, busy, onSave, onClose }:
   let problem = '';
   try {
     if (entrants.length !== entrantIds.length) throw new Error('An entrant is no longer eligible. Restore their approval, check-in and payment before changing matchups.');
-    validatePairings(pairings, entrantIds);
+    validatePairings(pairings, entrantIds, opening.length || undefined);
   } catch (error) { problem = error instanceof Error ? error.message : 'Check your matchups.'; }
   function choose(index: number, side: 'team_a' | 'team_b', selected: string) {
     const id = selected || null;
@@ -30,13 +30,14 @@ export function BracketPairingsEditor({ matches, teams, busy, onSave, onClose }:
     });
   }
   return <section className={styles.pairingEditor} aria-label="Manage opening matchups">
-    <div className={styles.editorHeading}><div><h4>Choose who plays whom</h4><p>Each team appears once. Selecting an assigned team swaps its position.</p></div><button type="button" disabled={busy} aria-label="Close matchup manager" onClick={onClose}><X size={18}/></button></div>
+    <div className={styles.editorHeading}><div><h4>Choose who plays whom</h4><p>Each team appears once. Selecting an assigned team swaps its position. An odd team advances automatically.</p></div><button type="button" disabled={busy} aria-label="Close matchup manager" onClick={onClose}><X size={18}/></button></div>
     {entrants.length < 2 && <p className={styles.pairingWarning}>At least two teams must be approved, checked in and paid before you can create matchups.</p>}
+    <div className={styles.pairingActions}><button type="button" className={styles.resetPairings} disabled={busy || entrants.length < 2 || entrants.length !== entrantIds.length} onClick={() => setPairings(randomPairings(entrantIds))}><Shuffle size={15}/> Randomise matchups</button><span>Shuffles Team A and Team B. Review the draw, then save it.</span></div>
     <form onSubmit={event => { event.preventDefault(); if (!problem) void onSave(pairings); }}>
       <div className={styles.pairingList}>{pairings.map((pair, index) => <fieldset className={styles.pairingRow} key={index} disabled={busy}><legend>Match {String(index + 1).padStart(2, '0')}</legend>
-        <label>Team A<select value={pair.team_a || ''} onChange={event => choose(index, 'team_a', event.target.value)}><option value="">Bye / empty slot</option>{entrants.map(team => <option key={team.id} value={team.id}>{team.team_name}</option>)}</select></label>
+        <label>Team A{pair.team_a ? <select value={pair.team_a} onChange={event => choose(index, 'team_a', event.target.value)}>{entrants.map(team => <option key={team.id} value={team.id}>{team.team_name}</option>)}</select> : <span className={styles.automaticAdvance}>Automatic advance</span>}</label>
         <ArrowLeftRight size={17} aria-label="versus"/>
-        <label>Team B<select value={pair.team_b || ''} onChange={event => choose(index, 'team_b', event.target.value)}><option value="">Bye / empty slot</option>{entrants.map(team => <option key={team.id} value={team.id}>{team.team_name}</option>)}</select></label>
+        <label>Team B{pair.team_b ? <select value={pair.team_b} onChange={event => choose(index, 'team_b', event.target.value)}>{entrants.map(team => <option key={team.id} value={team.id}>{team.team_name}</option>)}</select> : <span className={styles.automaticAdvance}>Automatic advance</span>}</label>
       </fieldset>)}</div>
       {problem && entrants.length >= 2 && <p role="alert" className={styles.pairingWarning}>{problem}</p>}
       <div className={styles.pairingActions}><button type="button" className={styles.resetPairings} disabled={busy || entrants.length < 2 || entrants.length !== entrantIds.length} onClick={() => setPairings(automaticPairings(entrantIds))}><RotateCcw size={13}/> Reset to automatic</button><span>Later rounds follow match winners automatically.</span><button className={styles.primaryButton} disabled={busy || !!problem}>{busy ? 'Saving…' : matches.length ? 'Save matchups' : 'Generate bracket'} <Check size={15}/></button></div>

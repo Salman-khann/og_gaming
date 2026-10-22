@@ -14,7 +14,8 @@ export async function requireProfile(admin = false) {
   return { db, profile };
 }
 export function apiError(error: unknown) {
-  if (error instanceof ApiError) return Response.json({ error: error.message }, { status: error.status });
-  console.error('Arena request failed:', error);
+  if (error instanceof ApiError) return Response.json({ error: error.message }, { status: error.status, headers: { 'Cache-Control': 'no-store', ...error.headers } });
+  // Exceptions can contain provider URLs, credentials or submitted private data.
+  console.error('Arena request failed:', error instanceof Error ? error.name : 'Unknown error');
   return Response.json({ error: 'Arena service unavailable. Check the server configuration and try again.' }, { status: 503 });
 }

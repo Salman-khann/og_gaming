@@ -5,14 +5,21 @@ export type OpeningPairing = { team_a: string | null; team_b: string | null };
 export function automaticPairings(teamIds: string[]): OpeningPairing[] {
   return buildBracket(teamIds, 'single').filter(match => match.bracket === 'winners' && match.round === 1).map(({ team_a, team_b }) => ({ team_a, team_b }));
 }
+export function randomPairings(teamIds: string[]): OpeningPairing[] {
+  const shuffled = [...teamIds];
+  // Shuffle all entrants before pairing consecutive teams.
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return automaticPairings(shuffled);
+}
 export function currentPairings(matches: TournamentMatch[]): OpeningPairing[] {
   return matches.filter(match => (match.bracket || 'winners') === 'winners' && match.round === 1).sort((a, b) => a.position - b.position).map(({ team_a, team_b }) => ({ team_a, team_b }));
 }
-export function validatePairings(value: unknown, teamIds: string[]): OpeningPairing[] {
+export function validatePairings(value: unknown, teamIds: string[], openingCount = Math.ceil(teamIds.length / 2)): OpeningPairing[] {
   if (teamIds.length < 2 || teamIds.length > 128 || new Set(teamIds).size !== teamIds.length) throw new Error('Choose 2–128 distinct eligible teams.');
-  let size = 2;
-  while (size < teamIds.length) size *= 2;
-  if (!Array.isArray(value) || value.length !== size / 2) throw new Error('The number of opening matches does not match the entrant list.');
+  if (!Array.isArray(value) || value.length !== openingCount) throw new Error('The number of opening matches does not match the entrant list.');
   const eligible = new Set(teamIds), selected = new Set<string>();
   const pairings = value.map((item, index) => {
     if (!item || typeof item !== 'object' || Array.isArray(item)) throw new Error('Invalid matchup.');

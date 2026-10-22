@@ -1,0 +1,6 @@
+.loader { display:inline-flex; align-items:center; gap:9px; max-width:100%; font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+.symbol { color:#f69c5c; line-height:1; width:19px; text-align:center; flex-shrink:0; }
+.cells { display:inline-flex; white-space:pre; line-height:1; min-width:0; }
+.cell { display:inline-block; white-space:pre; color:#ffdfc8; background:#24170f; }
+.tokens { color:#b57545; font-variant-numeric:tabular-nums; white-space:nowrap; }
+@media(max-width:380px) { .loader { gap:6px; } }

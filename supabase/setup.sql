@@ -1686,4 +1686,160 @@ REVOKE ALL ON FUNCTION public.set_competition_pairings(uuid, jsonb) FROM PUBLIC,
 GRANT EXECUTE ON FUNCTION public.set_competition_pairings(uuid, jsonb) TO service_role;
 NOTIFY pgrst, 'reload schema';
 
+-- Migration: 20261017193133_admin_dashboard_reporting.sql
+-- Aggregate every matching row in Postgres, independently of admin list pagination.
+CREATE INDEX registrations_created_reporting_idx ON public.registrations(created_at);
+CREATE INDEX registrations_event_reporting_idx ON public.registrations(tournament_id,created_at);
+CREATE FUNCTION public.admin_dashboard_report(period_days integer, event_id uuid DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path='' AS $$
+DECLARE since_at timestamptz; until_at timestamptz := now(); result jsonb;
+BEGIN
+ IF period_days IS NULL OR period_days NOT IN (7,30,90) THEN RAISE EXCEPTION 'Choose 7, 30 or 90 days.'; END IF;
+ since_at := ((until_at AT TIME ZONE 'Asia/Karachi')::date - (period_days-1))::timestamp AT TIME ZONE 'Asia/Karachi';
+ WITH entries AS MATERIALIZED (
+  SELECT created_at,status,checked_in,payment_status,amount_due FROM public.registrations
+  WHERE created_at>=since_at AND created_at<=until_at AND (event_id IS NULL OR tournament_id=event_id)
+ ), days AS (
+  SELECT generate_series((since_at AT TIME ZONE 'Asia/Karachi')::date,(until_at AT TIME ZONE 'Asia/Karachi')::date,interval '1 day')::date AS day
+ ), daily AS (
+  SELECT (created_at AT TIME ZONE 'Asia/Karachi')::date AS day,count(*) AS entries,
+   coalesce(sum(amount_due) FILTER(WHERE payment_status='verified'),0) AS verified_fees FROM entries GROUP BY 1
+ )
+ SELECT jsonb_build_object(
+  'since',since_at,'until',until_at,'days',period_days,
+  'registrations',(SELECT count(*) FROM entries),
+  'approved',(SELECT count(*) FROM entries WHERE status='approved'),
+  'pending',(SELECT count(*) FROM entries WHERE status='pending'),
+  'rejected',(SELECT count(*) FROM entries WHERE status='rejected'),
+  'checked_in',(SELECT count(*) FROM entries WHERE checked_in),
+  'verified_fees',(SELECT coalesce(sum(amount_due),0) FROM entries WHERE payment_status='verified'),
+  'unverified_fees',(SELECT coalesce(sum(amount_due),0) FROM entries WHERE payment_status='pending'),
+  'series',(SELECT coalesce(jsonb_agg(jsonb_build_object('day',d.day,'entries',coalesce(a.entries,0),'verified_fees',coalesce(a.verified_fees,0)) ORDER BY d.day),'[]'::jsonb) FROM days d LEFT JOIN daily a USING(day))
+ ) INTO result;
+ RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION public.admin_dashboard_report(integer,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_dashboard_report(integer,uuid) TO service_role;
+
+CREATE FUNCTION public.admin_delete_tournament(actor_id uuid,event_id uuid,confirmation_title text)
+RETURNS void LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE event public.tournaments;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM public.profiles WHERE id=actor_id AND role='admin') THEN RAISE EXCEPTION 'Administrator access required.'; END IF;
+ SELECT * INTO event FROM public.tournaments WHERE id=event_id FOR UPDATE;
+ IF event.id IS NULL THEN RAISE EXCEPTION 'Tournament no longer exists.'; END IF;
+ IF confirmation_title IS DISTINCT FROM event.title THEN RAISE EXCEPTION 'Type the current tournament title to confirm deletion.'; END IF;
+ -- Remove bracket references before cascading through registrations and private contacts.
+ DELETE FROM public.tournament_matches WHERE tournament_id=event.id;
+ DELETE FROM public.tournaments WHERE id=event.id;
+END $$;
+REVOKE ALL ON FUNCTION public.admin_delete_tournament(uuid,uuid,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.admin_delete_tournament(uuid,uuid,text) TO service_role;
+
+-- Migration: 20261022093653_bracket_result_clear.sql
+-- Server-only result reversal. The event lock serializes all bracket mutations.
+CREATE OR REPLACE FUNCTION public.clear_competition_result(game_id uuid) RETURNS void
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE m public.tournament_matches; event_status text;
+BEGIN
+ SELECT * INTO m FROM public.tournament_matches WHERE id=game_id;
+ IF m.id IS NULL THEN RAISE EXCEPTION 'Match not found.'; END IF;
+ SELECT status INTO event_status FROM public.tournaments WHERE id=m.tournament_id FOR UPDATE;
+ SELECT * INTO m FROM public.tournament_matches WHERE id=game_id FOR UPDATE;
+ IF event_status NOT IN ('ongoing','completed') OR m.node_key IS NULL OR m.status<>'completed' THEN
+  RAISE EXCEPTION 'Only a completed bracket match can be cleared.';
+ END IF;
+ IF EXISTS (
+  WITH RECURSIVE downstream AS (
+   SELECT node_key,status FROM public.tournament_matches WHERE tournament_id=m.tournament_id AND (source_a=m.node_key OR source_b=m.node_key)
+   UNION
+   SELECT n.node_key,n.status FROM public.tournament_matches n JOIN downstream d ON (n.source_a=d.node_key OR n.source_b=d.node_key) WHERE n.tournament_id=m.tournament_id
+  ) SELECT 1 FROM downstream WHERE status='completed'
+ ) THEN RAISE EXCEPTION 'A later match has finished; this result is locked.'; END IF;
+ -- Remove derived entrants and bye winners before propagating the cleared graph.
+ WITH RECURSIVE downstream AS (
+  SELECT node_key FROM public.tournament_matches WHERE tournament_id=m.tournament_id AND (source_a=m.node_key OR source_b=m.node_key)
+  UNION
+  SELECT n.node_key FROM public.tournament_matches n JOIN downstream d ON (n.source_a=d.node_key OR n.source_b=d.node_key) WHERE n.tournament_id=m.tournament_id
+ ) UPDATE public.tournament_matches SET
+   team_a=CASE WHEN source_a IS NULL THEN team_a ELSE NULL END,
+   team_b=CASE WHEN source_b IS NULL THEN team_b ELSE NULL END,
+   status='pending',winner_id=NULL,score_a=NULL,score_b=NULL
+ WHERE tournament_id=m.tournament_id AND node_key IN (SELECT node_key FROM downstream);
+ UPDATE public.tournament_matches SET score_a=NULL,score_b=NULL,winner_id=NULL,status='pending' WHERE id=m.id;
+ UPDATE public.tournaments SET status='ongoing',updated_at=now() WHERE id=m.tournament_id;
+ PERFORM public.advance_competition(m.tournament_id);
+END $$;
+REVOKE ALL ON FUNCTION public.clear_competition_result(uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.clear_competition_result(uuid) TO service_role;
+NOTIFY pgrst,'reload schema';
+
+-- Migration: 20261022101520_match_scorecards.sql
+CREATE TABLE public.match_scorecards (
+ match_id uuid NOT NULL REFERENCES public.tournament_matches(id) ON DELETE CASCADE,
+ map_number integer NOT NULL CHECK (map_number BETWEEN 1 AND 3),
+ storage_path text NOT NULL UNIQUE,
+ score_a integer NOT NULL, score_b integer NOT NULL,
+ team_a uuid NOT NULL, team_b uuid NOT NULL,
+ uploaded_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
+ uploaded_at timestamptz NOT NULL DEFAULT now(),
+ PRIMARY KEY (match_id,map_number)
+);
+ALTER TABLE public.match_scorecards ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.match_scorecards FROM PUBLIC,anon,authenticated;
+GRANT SELECT,INSERT,UPDATE,DELETE ON public.match_scorecards TO service_role;
+-- Storage objects are private. Public viewing goes through the match's RLS check.
+CREATE FUNCTION public.save_match_scorecard(game_id uuid,map_no integer,object_path text,expected_a integer,expected_b integer,actor_id uuid)
+RETURNS text LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE m public.tournament_matches; previous_path text;
+BEGIN
+ SELECT * INTO m FROM public.tournament_matches WHERE id=game_id;
+ IF m.id IS NULL THEN RAISE EXCEPTION 'Match not found.'; END IF;
+ PERFORM 1 FROM public.tournaments WHERE id=m.tournament_id FOR UPDATE;
+ SELECT * INTO m FROM public.tournament_matches WHERE id=game_id FOR UPDATE;
+ IF NOT EXISTS(SELECT 1 FROM public.profiles WHERE id=actor_id AND role='admin') THEN RAISE EXCEPTION 'Administrator access required.'; END IF;
+ IF m.status<>'completed' OR m.team_a IS NULL OR m.team_b IS NULL OR m.score_a IS DISTINCT FROM expected_a OR m.score_b IS DISTINCT FROM expected_b THEN RAISE EXCEPTION 'The result changed. Reload the match before uploading.'; END IF;
+ IF map_no IS NULL OR map_no NOT BETWEEN 1 AND least(3,m.score_a+m.score_b) THEN RAISE EXCEPTION 'Select a map played in this series.'; END IF;
+ IF object_path IS NOT NULL AND (object_path NOT LIKE m.tournament_id::text||'/'||m.id::text||'/%' OR object_path !~ '^[a-f0-9-]{36}/[a-f0-9-]{36}/[a-f0-9-]{36}\.(png|jpg|webp)$') THEN RAISE EXCEPTION 'Invalid scorecard file.'; END IF;
+ SELECT storage_path INTO previous_path FROM public.match_scorecards WHERE match_id=game_id AND map_number=map_no;
+ IF object_path IS NULL THEN
+  DELETE FROM public.match_scorecards WHERE match_id=game_id AND map_number=map_no;
+ ELSE
+  INSERT INTO public.match_scorecards(match_id,map_number,storage_path,score_a,score_b,team_a,team_b,uploaded_by)
+  VALUES(game_id,map_no,object_path,m.score_a,m.score_b,m.team_a,m.team_b,actor_id)
+  ON CONFLICT(match_id,map_number) DO UPDATE SET storage_path=excluded.storage_path,score_a=excluded.score_a,score_b=excluded.score_b,team_a=excluded.team_a,team_b=excluded.team_b,uploaded_by=excluded.uploaded_by,uploaded_at=now();
+ END IF;
+ RETURN previous_path;
+END $$;
+REVOKE ALL ON FUNCTION public.save_match_scorecard(uuid,integer,text,integer,integer,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.save_match_scorecard(uuid,integer,text,integer,integer,uuid) TO service_role;
+NOTIFY pgrst,'reload schema';
+
+-- Migration: 20261022114408_five_match_screenshots.sql
+ALTER TABLE public.match_scorecards DROP CONSTRAINT match_scorecards_map_number_check;
+ALTER TABLE public.match_scorecards ADD CONSTRAINT match_scorecards_map_number_check CHECK(map_number BETWEEN 1 AND 5);
+CREATE OR REPLACE FUNCTION public.save_match_scorecard(game_id uuid,map_no integer,object_path text,expected_a integer,expected_b integer,actor_id uuid)
+RETURNS text LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE m public.tournament_matches; previous_path text;
+BEGIN
+ SELECT * INTO m FROM public.tournament_matches WHERE id=game_id;
+ IF m.id IS NULL THEN RAISE EXCEPTION 'Match not found.'; END IF;
+ PERFORM 1 FROM public.tournaments WHERE id=m.tournament_id FOR UPDATE;
+ SELECT * INTO m FROM public.tournament_matches WHERE id=game_id FOR UPDATE;
+ IF NOT EXISTS(SELECT 1 FROM public.profiles WHERE id=actor_id AND role='admin') THEN RAISE EXCEPTION 'Administrator access required.'; END IF;
+ IF m.status<>'completed' OR m.team_a IS NULL OR m.team_b IS NULL OR m.score_a IS DISTINCT FROM expected_a OR m.score_b IS DISTINCT FROM expected_b THEN RAISE EXCEPTION 'The result changed. Reload the match before uploading.'; END IF;
+ IF map_no IS NULL OR map_no NOT BETWEEN 1 AND 5 THEN RAISE EXCEPTION 'Choose a screenshot position from 1 to 5.'; END IF;
+ IF object_path IS NOT NULL AND (object_path NOT LIKE m.tournament_id::text||'/'||m.id::text||'/%' OR object_path !~ '^[a-f0-9-]{36}/[a-f0-9-]{36}/[a-f0-9-]{36}\.(png|jpg|webp)$') THEN RAISE EXCEPTION 'Invalid scorecard file.'; END IF;
+ SELECT storage_path INTO previous_path FROM public.match_scorecards WHERE match_id=game_id AND map_number=map_no;
+ IF object_path IS NULL THEN
+  DELETE FROM public.match_scorecards WHERE match_id=game_id AND map_number=map_no;
+ ELSE
+  INSERT INTO public.match_scorecards(match_id,map_number,storage_path,score_a,score_b,team_a,team_b,uploaded_by)
+  VALUES(game_id,map_no,object_path,m.score_a,m.score_b,m.team_a,m.team_b,actor_id)
+  ON CONFLICT(match_id,map_number) DO UPDATE SET storage_path=excluded.storage_path,score_a=excluded.score_a,score_b=excluded.score_b,team_a=excluded.team_a,team_b=excluded.team_b,uploaded_by=excluded.uploaded_by,uploaded_at=now();
+ END IF;
+ RETURN previous_path;
+END $$;
+NOTIFY pgrst,'reload schema';
+
 COMMIT;

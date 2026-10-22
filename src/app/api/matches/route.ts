@@ -7,7 +7,8 @@ import { cookies } from 'next/headers';
 import { issueDeletionCookie, newDeletionCredential, ownsPost } from '@/lib/match-ownership';
 import { connection } from 'next/server';
 import { ownedRoster } from '@/lib/community';
-import { rateLimit } from '@/lib/rate-limit';
+import { rateLimit, rateLimitSubject } from '@/lib/rate-limit';
+import { rejectBotField } from '@/lib/api-input';
 import { dispatchAfterResponse } from '@/lib/notifications';
 export async function GET(request:Request) {
   await connection();
@@ -31,12 +32,14 @@ export async function POST(request: Request) {
       if(error) throw new ApiError(error.message,409); return Response.json({success:true});
     }
     if (body.action === 'join') {
-      const { db } = await requireProfile();
+      const { db, profile } = await requireProfile();
+      await rateLimit(request,'match-join',20,60,profile.id);
       const { error } = await db.rpc('join_arena_match', { match_id: uuidField(body.match_id, 'match') });
       if (error) throw new ApiError(error.message, 409);
       return Response.json({ success: true });
     }
     if (!['solo_lfg', 'team_vs_team', 'gather_5v5'].includes(String(body.type))) throw new ApiError('Invalid match type.');
+    rejectBotField(body);
     let phone: string, scheduledTime: string;
     try { phone = normalizePhone(body.contact_phone); scheduledTime = futureMatchTime(body.scheduled_time); }
     catch (error) { throw new ApiError(error instanceof Error ? error.message : 'Invalid match details.'); }
@@ -46,6 +49,7 @@ export async function POST(request: Request) {
     const db = createAdminClient();
     const min = integer(body.min_faceit_level, 1, 10), max = integer(body.max_faceit_level, min, 10);
     await rateLimit(request,'match-post',5,3600,profile?.id);
+    await rateLimitSubject('match-post-phone',phone,5,3600);
     const teamId=body.type==='team_vs_team'?uuidField(body.team_id,'verified team'):null;
     if(teamId) {if(!profile)throw new ApiError('Sign in to post a team scrim.',401);await ownedRoster(profile.id,teamId);}
     const credential = newDeletionCredential();

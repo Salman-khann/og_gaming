@@ -1,6 +1,5 @@
 import { createClient } from './supabase/server';
 import { ApiError } from './api';
-import { FaceitError, normalizeFaceitNickname, verifyFaceitPlayer } from './faceit';
 import type { MatchRequest, Tournament, Registration } from '@/types';
 import {guestApplications} from './team-applications';
 import {createAdminClient} from './supabase/admin';
@@ -30,19 +29,4 @@ export async function readArena(kind: 'matches' | 'tournaments',page=1,registrat
     if(user){const own=await db.from('registrations').select('*').eq('captain_id',user.id).in('tournament_id',t.data.map(event=>event.id)).limit(25);queryError(own.error);for(const registration of own.data||[])if(!registrations.some(row=>row.id===registration.id))registrations.push(registration as Registration);}
   }
   return { tournaments: (t.data || []).map(t => ({ ...t, registrations_count: t.approved?.[0]?.count || 0 })) as Tournament[], registrations,has_more:page*25<(t.count||0),registrations_has_more:registrationPage*50<(r.count||0) };
-}
-export async function verifyRoster(nicknames: string[], min: number, max: number) {
-  if (nicknames.length !== 5 || nicknames.some(n => typeof n !== 'string' || !n.trim() || n.length > 200)) throw new ApiError('Enter five different FACEIT nicknames or profile URLs.');
-  let names: string[];
-  try { names = nicknames.map(normalizeFaceitNickname); } catch (error) { throw new ApiError(error instanceof Error ? error.message : 'Invalid FACEIT profile.'); }
-  if (new Set(names.map(n => n.toLowerCase())).size !== 5) throw new ApiError('Enter five different FACEIT players.');
-  if (!process.env.FACEIT_API_KEY || process.env.FACEIT_API_KEY.startsWith('your-')) throw new ApiError('FACEIT verification is not configured.', 503);
-  let players;
-  try { players = await Promise.all(names.map(verifyFaceitPlayer)); } catch (error) { throw new ApiError(error instanceof Error ? error.message : 'FACEIT verification is temporarily unavailable.', error instanceof FaceitError ? error.status : 400); }
-  const roster = players.map(p => {
-    if (p.level < min || p.level > max) throw new ApiError(`${p.nickname} is FACEIT level ${p.level}. This tournament requires levels ${min}–${max}.`);
-    return { nickname: p.nickname, faceit_id: p.id, level: p.level, elo: p.elo };
-  });
-  if (new Set(roster.map(p => p.faceit_id)).size !== 5) throw new ApiError('The roster must contain five different players.');
-  return roster;
 }

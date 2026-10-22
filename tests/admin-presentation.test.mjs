@@ -9,7 +9,10 @@ const require=createRequire(import.meta.url);
 let source=readFileSync(new URL('../src/components/OperationsPanel.tsx',import.meta.url),'utf8').split('\n').filter(line=>!line.startsWith('import ')||line.includes("from 'react'")).join('\n');
 source=source.replace("useState('tournaments')","useState('players')");
 source+=`
+const styles=new Proxy({},{get:(_target,key)=>String(key)});
+function AdminAnalytics(){return null;}
 function Link({children}) {return children;}
+function useAppendPages(_scope,_page,items){return items||[];}
 function useResource(){return {data:{items:[{id:'fixture',faceit_nickname:'IPHONE',faceit_id:null,faceit_level:1,faceit_elo:1000,role:'player',created_at:'2026-10-08T11:48:23Z',last_active_at:'2026-10-13T13:16:01Z'}],total:1},error:'',loading:false,reload:async()=>{}};}
 async function sendAction(){}
 `;

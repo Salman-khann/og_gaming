@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthProvider';
+import { BotTrap } from './BotTrap';
 export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const { refresh, loginError } = useAuth();
   const router = useRouter();
@@ -13,7 +14,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
     event.preventDefault(); setBusy(true); setError(''); setMessage('');
     const fields = new FormData(event.currentTarget);
     try {
-      const response = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: mode, email: fields.get('email'), password: fields.get('password'), nickname: fields.get('nickname') }) });
+      const response = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: mode, email: fields.get('email'), password: fields.get('password'), nickname: fields.get('nickname'), company_website: fields.get('company_website') }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       if (data.confirmationRequired) { setMessage('Check your email to confirm your account, then log in.'); return; }
@@ -27,6 +28,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
     <div className="form-stack my-6"><a className="button secondary" href="/api/auth/faceit">Continue with FACEIT</a><a className="button secondary" href="/api/auth/steam">Continue with Steam</a></div>
     {loginError && <p role="alert" className="error-message">{loginError}</p>}
     <form onSubmit={submit} className="form-stack">
+      <BotTrap />
       {mode === 'signup' && <label>Player name<input name="nickname" autoComplete="nickname" required maxLength={40} /></label>}
       <label>Email<input name="email" type="email" autoComplete="email" required maxLength={254} /></label>
       <label>Password<input name="password" type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} required minLength={8} maxLength={128} /></label>

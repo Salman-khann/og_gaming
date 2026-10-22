@@ -1,22 +1,23 @@
 import type { TournamentMatch } from '@/types';
 
-export const BRACKET_CARD_WIDTH = 248;
-export const BRACKET_CARD_HEIGHT = 92;
-const PITCH = 144, GAP = 88, HEADER = 52, PORT = 58;
+export const BRACKET_CARD_WIDTH = 280;
+export const BRACKET_CARD_HEIGHT = 104;
+const PITCH = 144, GAP = 88, HEADER = 52, PORT = 66;
 export type BracketPlacement = { match: TournamentMatch; x: number; y: number };
 
-export function layoutBracket(matches: TournamentMatch[]) {
+export function layoutBracket(matches: TournamentMatch[], cardHeight = BRACKET_CARD_HEIGHT) {
+  const pitch = Math.max(PITCH, cardHeight + 28);
   const keys = [...new Set(matches.map(match => match.bracket === 'reset' ? 'reset' : String(match.round)))].sort((a, b) => a === 'reset' ? 1 : b === 'reset' ? -1 : Number(a) - Number(b));
   const firstCount = Math.max(1, matches.filter(match => (match.bracket === 'reset' ? 'reset' : String(match.round)) === keys[0]).length);
   const placements: BracketPlacement[] = [];
   const nodes = new Map<string, BracketPlacement>();
   const columns = keys.map((key, column) => {
     const games = matches.filter(match => (match.bracket === 'reset' ? 'reset' : String(match.round)) === key).sort((a, b) => a.position - b.position);
-    let previousY = -PITCH;
+    let previousY = -pitch;
     games.forEach((match, index) => {
       const sources = [...new Set([match.source_a, match.source_b].filter((source): source is string => !!source))].map(source => nodes.get(source)).filter((source): source is BracketPlacement => !!source);
-      const centered = sources.length ? sources.reduce((sum, source) => sum + source.y, 0) / sources.length : HEADER + ((index + .5) * firstCount / games.length - .5) * PITCH;
-      const placement = { match, x: column * (BRACKET_CARD_WIDTH + GAP), y: Math.max(HEADER, previousY + PITCH, centered) };
+      const centered = sources.length ? sources.reduce((sum, source) => sum + source.y, 0) / sources.length : HEADER + ((index + .5) * firstCount / games.length - .5) * pitch;
+      const placement = { match, x: column * (BRACKET_CARD_WIDTH + GAP), y: Math.max(HEADER, previousY + pitch, centered) };
       previousY = placement.y;
       placements.push(placement);
       nodes.set(match.node_key || `${match.bracket || 'winners'}:${match.round}:${match.position}`, placement);
@@ -34,7 +35,7 @@ export function layoutBracket(matches: TournamentMatch[]) {
       path: `M ${source.x + BRACKET_CARD_WIDTH} ${source.y + PORT} H ${source.x + BRACKET_CARD_WIDTH + GAP / 2} V ${target.y + PORT} H ${target.x}`,
     }));
   });
-  return { columns, placements, connections, width: Math.max(BRACKET_CARD_WIDTH, columns.length * (BRACKET_CARD_WIDTH + GAP) - GAP), height: Math.max(HEADER + BRACKET_CARD_HEIGHT, ...placements.map(placement => placement.y + BRACKET_CARD_HEIGHT)) + 24 };
+  return { columns, placements, connections, width: Math.max(BRACKET_CARD_WIDTH, columns.length * (BRACKET_CARD_WIDTH + GAP) - GAP), height: Math.max(HEADER + cardHeight, ...placements.map(placement => placement.y + cardHeight)) + 24 };
 }
 
 export function bracketChampion(matches: TournamentMatch[]) {

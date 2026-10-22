@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-const source = ts.transpileModule(readFileSync(new URL('../src/lib/faceit.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+const source = ts.transpileModule(readFileSync(new URL('../src/lib/faceit.ts', import.meta.url), 'utf8').replace("import 'server-only';", ''), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
 const { normalizeFaceitNickname, verifyFaceitPlayer } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 assert.equal(normalizeFaceitNickname(' https://www.faceit.com/en/players/Test-Player/stats/cs2 '), 'Test-Player');
 assert.equal(normalizeFaceitNickname('faceit.com/en/players/Test-Player'), 'Test-Player');

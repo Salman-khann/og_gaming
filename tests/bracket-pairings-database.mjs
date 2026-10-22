@@ -17,13 +17,13 @@ export async function testPairingManagement(db, buildBracket) {
       await db.exec('SET LOCAL ROLE service_role');
       await db.query('SELECT public.create_competition_bracket($1,$2)', [event, JSON.stringify(buildBracket(ids, type))]);
       const original = (await db.query('SELECT id,node_key,source_a,source_b FROM public.tournament_matches WHERE tournament_id=$1 ORDER BY node_key', [event])).rows;
-      const pairs = [{ team_a: ids[0], team_b: ids[1] }, { team_a: ids[2], team_b: null }, { team_a: ids[3], team_b: null }, { team_a: ids[4], team_b: null }];
+      const pairs = [{ team_a: ids[0], team_b: ids[1] }, { team_a: ids[2], team_b: ids[3] }, { team_a: ids[4], team_b: null }];
       await db.query('SELECT public.set_competition_pairings($1,$2)', [event, JSON.stringify(pairs)]);
       const opening = (await db.query("SELECT team_a,team_b,status,winner_id FROM public.tournament_matches WHERE tournament_id=$1 AND bracket='winners' AND round=1 ORDER BY position", [event])).rows;
       assert.deepEqual(opening.map(({ team_a, team_b }) => ({ team_a, team_b })), pairs);
       assert.equal(opening[0].status, 'pending');
-      assert.equal(opening[1].status, 'bye');
-      assert.equal(opening[1].winner_id, ids[2]);
+      assert.equal(opening[2].status, 'bye');
+      assert.equal(opening[2].winner_id, ids[4]);
       assert.deepEqual((await db.query('SELECT id,node_key,source_a,source_b FROM public.tournament_matches WHERE tournament_id=$1 ORDER BY node_key', [event])).rows, original, 'editing pairings preserves every match ID and source link');
       async function reject(value, pattern) {
         const before = (await db.query('SELECT * FROM public.tournament_matches WHERE tournament_id=$1 ORDER BY id', [event])).rows;

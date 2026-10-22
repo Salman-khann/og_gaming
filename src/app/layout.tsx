@@ -3,6 +3,7 @@ import { Inter, Rajdhani } from 'next/font/google';
 import './globals.css';
 import './home.css';
 import { AuthProvider } from '@/components/AuthProvider';
+import { SiteStartupLoader } from '@/components/SiteStartupLoader';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -16,6 +17,7 @@ const rajdhani = Rajdhani({
 });
 
 export const metadata: Metadata = {
+  formatDetection: { telephone: false, date: false, email: false, address: false },
   title: 'OG Gaming | High-End Gaming Zone in Bahadurabad, Karachi — PC & PS5 Bays',
   description:
     "OG Gaming is Bahadurabad's high-end gaming zone: 240Hz MSI esports PC cabins and a PS5 Slim lounge. Find 5v5 matches and tournaments — Suite 201, Meriums Complex, Main Bahadurabad, Karachi.",
@@ -38,7 +40,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${rajdhani.variable} h-full antialiased dark`}>
-      <body className="min-h-full flex flex-col font-sans"><AuthProvider>{children}</AuthProvider></body>
+      <body className="min-h-full flex flex-col font-sans"><noscript><style>{'[data-startup-loader]{display:none!important}'}</style></noscript><SiteStartupLoader/><AuthProvider>{children}</AuthProvider></body>
     </html>
   );
 }

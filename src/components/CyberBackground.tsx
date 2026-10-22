@@ -9,7 +9,6 @@ interface Particle {
   speedY: number;
   speedX: number;
   opacity: number;
-  fadeSpeed: number;
   color: string;
   glow: number;
 }
@@ -24,16 +23,18 @@ export function CyberBackground() {
     if (!ctx) return;
     const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-    let animationFrameId: number;
-    let width = (canvas.width = window.innerWidth);
-    let height = (canvas.height = window.innerHeight);
+    let animationFrameId: number | null = null;
+    let width = window.innerWidth;
+    let height = window.innerHeight;
+    let lastTime: number | null = null;
 
-    const handleResize = () => {
-      if (!canvas) return;
-      width = canvas.width = window.innerWidth;
-      height = canvas.height = window.innerHeight;
+    const sizeCanvas = () => {
+      const ratio = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(width * ratio);
+      canvas.height = Math.round(height * ratio);
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     };
-    window.addEventListener('resize', handleResize);
+    sizeCanvas();
 
     // Mouse coordinates for subtle interactive reaction
     const mouse = { x: -1000, y: -1000, radius: 120 };
@@ -56,7 +57,7 @@ export function CyberBackground() {
       'rgba(255, 215, 0, ', // Gold spark
     ];
 
-    const particleCount = Math.min(Math.floor((width * height) / 22000), 55);
+    const particleCount = Math.max(20, Math.min(Math.floor((width * height) / 18000), 55));
     const particles: Particle[] = [];
 
     const createParticle = (randomY = true): Particle => {
@@ -67,8 +68,7 @@ export function CyberBackground() {
         size: Math.random() * 2.8 + 1.2,
         speedY: -(Math.random() * 0.7 + 0.35), // Upward drift
         speedX: (Math.random() - 0.5) * 0.4, // Slight drift left/right
-        opacity: Math.random() * 0.6 + 0.2,
-        fadeSpeed: (Math.random() * 0.008 + 0.003) * (Math.random() > 0.5 ? 1 : -1),
+        opacity: Math.random() * 0.35 + 0.45,
         color: colorBase,
         glow: Math.random() * 12 + 6,
       };
@@ -80,8 +80,14 @@ export function CyberBackground() {
 
     let tick = 0;
 
-    const render = () => {
-      tick++;
+    const render = (time?: number) => {
+      const animate = document.visibilityState === 'visible';
+      // Keep the requested ember drift on mobile, with gentler motion when preferred.
+      const motionScale = motion.matches ? 0.35 : 1;
+      const step = animate && time !== undefined && lastTime !== null
+        ? Math.min((time - lastTime) / (1000 / 60), 2) * motionScale : 0;
+      lastTime = time ?? null;
+      tick += step;
       ctx.clearRect(0, 0, width, height);
 
       // Draw each floating ember/particle
@@ -89,21 +95,15 @@ export function CyberBackground() {
         const p = particles[i];
 
         // Move particle
-        p.y += p.speedY;
-        p.x += p.speedX + Math.sin(tick * 0.02 + i) * 0.15;
-
-        // Opacity pulsation
-        p.opacity += p.fadeSpeed;
-        if (p.opacity > 0.85 || p.opacity < 0.15) {
-          p.fadeSpeed = -p.fadeSpeed;
-        }
+        p.y += p.speedY * step;
+        p.x += (p.speedX + Math.sin(tick * 0.02 + i) * 0.15) * step;
 
         // Mouse interaction: slight repulsive/glow aura
         const dx = mouse.x - p.x;
         const dy = mouse.y - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist > 0 && dist < mouse.radius) {
-          const force = (1 - dist / mouse.radius) * 1.5;
+        if (!motion.matches && dist > 0 && dist < mouse.radius) {
+          const force = (1 - dist / mouse.radius) * 1.5 * step;
           p.x -= (dx / dist) * force;
           p.y -= (dy / dist) * force;
         }
@@ -153,22 +153,37 @@ export function CyberBackground() {
         }
       }
 
-      animationFrameId = requestAnimationFrame(render);
+      animationFrameId = animate ? requestAnimationFrame(render) : null;
     };
 
     const syncAnimation = () => {
-      cancelAnimationFrame(animationFrameId);
-      if (document.visibilityState === 'visible' && !motion.matches) render();
-      else ctx.clearRect(0, 0, width, height);
+      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
+      lastTime = null;
+      // Pause in hidden tabs and start a fresh clock when the page returns.
+      render();
     };
+    const handleResize = () => {
+      const nextWidth = window.innerWidth;
+      const nextHeight = window.innerHeight;
+      if (nextWidth === width && nextHeight === height) return;
+      for (const particle of particles) {
+        particle.x *= nextWidth / width;
+        particle.y *= nextHeight / height;
+      }
+      width = nextWidth;
+      height = nextHeight;
+      sizeCanvas();
+      syncAnimation();
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('pageshow', syncAnimation);
     document.addEventListener('visibilitychange', syncAnimation);
-    motion.addEventListener('change', syncAnimation);
     syncAnimation();
 
     return () => {
-      cancelAnimationFrame(animationFrameId);
+      if (animationFrameId !== null) cancelAnimationFrame(animationFrameId);
       document.removeEventListener('visibilitychange', syncAnimation);
-      motion.removeEventListener('change', syncAnimation);
+      window.removeEventListener('pageshow', syncAnimation);
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseleave', handleMouseLeave);
@@ -176,7 +191,7 @@ export function CyberBackground() {
   }, []);
 
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div aria-hidden="true" className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
       {/* Animated Floating Ambient Nebula Orbs */}
       <div className="ambient-orb ambient-orb-1" />
       <div className="ambient-orb ambient-orb-2" />

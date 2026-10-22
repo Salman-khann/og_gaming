@@ -8,6 +8,7 @@ This application requires Next.js server hosting. Login, private contacts, tourn
 - Build with `npm run build`.
 - For a Node server, run `npm start` with the host's assigned `PORT`.
 - Run `npm test`, `npm run lint` and `npm run typecheck` before deployment.
+- Follow [Security and recovery](SECURITY_AND_RECOVERY.md), configure the production rate-limit secret and trusted ingress, and run `npm run security:production` with deployment settings loaded.
 
 ## Production environment
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ts from 'typescript';
-async function load(path) { const source = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText; return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64')); }
+async function load(path) { const source = ts.transpileModule(readFileSync(new URL(path, import.meta.url), 'utf8').replace("import 'server-only';", ''), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText; return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64')); }
 const { normalizePhone, futureMatchTime } = await load('../src/lib/match-input.ts');
 assert.equal(normalizePhone('0300 1234567'), '+923001234567');
 assert.equal(normalizePhone('+92 (300) 123-4567'), '+923001234567');

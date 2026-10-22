@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+const source=ts.transpileModule(readFileSync(new URL('../src/lib/scorecard-image.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {scorecardImage,SCORECARD_MAX_BYTES}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+assert.equal(scorecardImage(Uint8Array.from([137,80,78,71,13,10,26,10])).type,'image/png');
+assert.equal(scorecardImage(Uint8Array.from([255,216,255,0])).extension,'jpg');
+assert.equal(scorecardImage(new TextEncoder().encode('RIFF0000WEBP')).extension,'webp');
+for(const invalid of ['', '<svg onload="alert(1)"></svg>', '<html>fake.png</html>', 'not an image']) assert.throws(()=>scorecardImage(new TextEncoder().encode(invalid)));
+assert.throws(()=>scorecardImage(new Uint8Array(SCORECARD_MAX_BYTES+1)));
+const slotsSource=ts.transpileModule(readFileSync(new URL('../src/lib/scorecard-slots.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
+const {scorecardSlots}=await import('data:text/javascript;base64,'+Buffer.from(slotsSource).toString('base64'));
+assert.deepEqual(scorecardSlots(1,[]),[1,2,3,4,5]);
+assert.deepEqual(scorecardSlots(3,[1,3,5]),[3,2,4],'Only replace the selected screenshot; preserve other existing uploads');
+assert.deepEqual(scorecardSlots(5,[1,2,3,4,5]),[5],'Five existing screenshots allow replacement without exceeding the cap');
+assert.throws(()=>scorecardSlots(6,[]));
+console.log('Scorecard image validation passed: PNG/JPEG/WebP signatures, size and non-image rejection.');

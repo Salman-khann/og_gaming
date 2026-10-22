@@ -7,7 +7,8 @@ import {createClient} from '@/lib/supabase/server';
 import {cookies} from 'next/headers';
 import {newDeletionCredential} from '@/lib/match-ownership';
 import { dispatchAfterResponse } from '@/lib/notifications';
-import { rateLimit } from '@/lib/rate-limit';
+import { rateLimit, rateLimitSubject } from '@/lib/rate-limit';
+import { rejectBotField } from '@/lib/api-input';
 const statuses = ['draft', 'upcoming', 'ongoing', 'completed', 'cancelled'];
 function tournamentFields(body: Record<string, unknown>) {
   const min = integer(body.min_level, 1, 10), max = integer(body.max_level, min, 10);
@@ -47,9 +48,12 @@ export async function POST(request: Request) {
       if (error) throw new ApiError('Unable to save tournament. Make sure the slug is unique.');
       return Response.json({ success: true, tournament }, { status: 201 });
     }
+    rejectBotField(body);
     const {event,application}=applicationInput(body);
     const id=uuidField(event,'tournament'),session=await createClient();const {data:{user}}=await session.auth.getUser();if(user)await requireProfile();
     await rateLimit(request,'registration',5,300,user?.id);
+    await rateLimitSubject('registration-phone',application.phone,5,3600);
+    await rateLimitSubject('registration-email',application.email.toLowerCase(),5,3600);
     const credential=newDeletionCredential();
     const { data: registration, error } = await createAdminClient().rpc('submit_team_application',{actor_id:user?.id||null,event_id:id,application,credential_hash:credential.hash});
     if (error) throw new ApiError(error.code === '23505' ? 'This team or captain is already registered.' : error.message, 409);
@@ -82,5 +86,20 @@ export async function PATCH(request: Request) {
     }
     dispatchAfterResponse();
     return Response.json({ success: true });
+  } catch (error) { return apiError(error); }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    sameOrigin(request);
+    const { profile } = await requireProfile(true);
+    const body = await jsonObject(request);
+    const { error } = await createAdminClient().rpc('admin_delete_tournament', {
+      actor_id: profile.id,
+      event_id: uuidField(body.tournament_id, 'tournament'),
+      confirmation_title: textField(body.confirmation_title, 'confirmation title', 120),
+    });
+    if (error) throw new ApiError(error.message, 409);
+    return Response.json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) { return apiError(error); }
 }

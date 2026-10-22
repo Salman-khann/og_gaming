@@ -711,7 +711,8 @@ export default function HomePage() {
           </div>
 
           <div className="foot-bottom">
-            OG Gaming &middot; Suite 201, 2nd Floor, Meriums Complex, Main Bahadurabad, Karachi &middot; +92 306 2779481 &middot;{' '}
+            OG Gaming &middot; Suite 201, 2nd Floor, Meriums Complex, Main Bahadurabad, Karachi &middot;{' '}
+            <a href="tel:+923062779481" className="hover:text-[var(--orange)]">+92 306 2779481</a> &middot;{' '}
             <a href="mailto:Oggamingkhi@gmail.com" className="hover:text-[var(--orange)]">
               Oggamingkhi@gmail.com
             </a>

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import ts from 'typescript';
-const source=readFileSync(new URL('../src/lib/notifications.ts',import.meta.url),'utf8').replace("import { after } from 'next/server';",'const after=()=>{};').replace("import { createAdminClient } from './supabase/admin';",'const createAdminClient=()=>globalThis.noticeTestDb;');
+const source=readFileSync(new URL('../src/lib/notifications.ts',import.meta.url),'utf8').replace("import 'server-only';", '').replace("import { after } from 'next/server';",'const after=()=>{};').replace("import { createAdminClient } from './supabase/admin';",'const createAdminClient=()=>globalThis.noticeTestDb;');
 const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
 const previous={};for(const key of ['TELEGRAM_BOT_TOKEN','TELEGRAM_ADMIN_CHAT_ID','RESEND_API_KEY','ADMIN_EMAIL','NOTIFICATION_FROM_EMAIL','NEXT_PUBLIC_SITE_URL']){previous[key]=process.env[key];process.env[key]='test-only';}process.env.NEXT_PUBLIC_SITE_URL='https://og.test';
 const originalFetch=globalThis.fetch;const rows=[{id:'event',channel:'system',recipient:'admins',event_type:'registrations:insert',payload:{name:'Consent squad'},event_key:'event-key',status:'pending',attempts:0}];

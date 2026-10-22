@@ -190,7 +190,7 @@ h3 { font-size: 1.2rem; font-weight: 600; }
   .header-row nav { order: 3; flex-basis: 100%; min-width: 0; max-width: 100%; overflow-x: auto; white-space: nowrap; border-top: 1px solid var(--line); padding-block: 12px 4px; font-size: .85rem; }
   .account-links { margin-left: auto; }
 }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
 .operations-panel { margin-bottom: 32px; }
 .operations-panel > .actions { margin-block: 20px; }
 .operations-panel form { margin-block: 20px; }

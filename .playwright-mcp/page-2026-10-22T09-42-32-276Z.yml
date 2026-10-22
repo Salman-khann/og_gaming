@@ -1,0 +1,34 @@
+- generic [active] [ref=f4e1]:
+  - banner [ref=f4e2]:
+    - generic [ref=f4e3]:
+      - link "OG Gaming home" [ref=f4e4] [cursor=pointer]:
+        - /url: /
+        - img "OG Gaming" [ref=f4e5]
+      - navigation "Main navigation" [ref=f4e6]:
+        - link "5v5 Matching" [ref=f4e7] [cursor=pointer]:
+          - /url: /matches
+        - link "Tournaments" [ref=f4e8] [cursor=pointer]:
+          - /url: /tournaments
+        - link "Teams" [ref=f4e9] [cursor=pointer]:
+          - /url: /teams
+        - link "Leaderboard" [ref=f4e10] [cursor=pointer]:
+          - /url: /leaderboard
+        - link "Community" [ref=f4e11] [cursor=pointer]:
+          - /url: /community
+      - generic [ref=f4e12]: Loading account…
+  - main [ref=f4e14]:
+    - link "← Tournament details" [ref=f4e15] [cursor=pointer]:
+      - /url: /tournaments/cs2-double-elimination-test-20-teams
+    - paragraph [ref=f4e16]: OG GAMING / BRACKET
+    - heading "CS2 Double Elimination — 20-Team Test" [level=1] [ref=f4e17]
+    - paragraph [ref=f4e18]: 5v5 BO3 Double Elimination
+    - region "Tournament bracket" [ref=f4e19]:
+      - generic [ref=f4e20]:
+        - generic [ref=f4e27]:
+          - paragraph [ref=f4e28]: OG GAMING / COMPETITION
+          - heading "Event bracket" [level=3] [ref=f4e29]
+        - button "Refresh bracket" [disabled] [ref=f4e31]
+      - status [ref=f4e37]:
+        - heading "Loading the bracket..." [level=4] [ref=f4e43]
+  - button "Open Next.js Dev Tools" [ref=f4e49] [cursor=pointer]
+  - alert [ref=f4e53]

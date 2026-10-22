@@ -1,5 +1,9 @@
 export class ApiError extends Error {
-  constructor(message: string, public status = 400) { super(message); }
+  constructor(message: string, public status = 400, public headers: Record<string, string> = {}) { super(message); }
+}
+
+export function rejectBotField(body: Record<string, unknown>) {
+  if (body.company_website !== undefined && body.company_website !== null && body.company_website !== '') throw new ApiError('Unable to submit this form.', 400);
 }
 
 export async function jsonObject(request: Request): Promise<Record<string, unknown>> {

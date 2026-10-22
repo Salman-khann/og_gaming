@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import ts from 'typescript';
+const source = ts.transpileModule(readFileSync(new URL('../src/lib/bracket-series.ts', import.meta.url), 'utf8'), { compilerOptions: { module: ts.ModuleKind.ESNext, target: ts.ScriptTarget.ES2022 } }).outputText;
+const { validSeriesScore, resultLocked, teamLosses } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
+for (const [a,b] of [[2,0],[2,1],[0,2],[1,2]]) assert.ok(validSeriesScore(a,b));
+for (const [a,b] of [[0,0],[1,0],[1,1],[2,2],[3,1],[13,7],[-1,2],[2,0.5],[NaN,2]]) assert.equal(validSeriesScore(a,b), false);
+const opening = { node_key:'w1', status:'completed', team_a:'a', team_b:'b', winner_id:'a' };
+const bye = { node_key:'l1', source_a:'w1', status:'bye', team_a:'b', winner_id:'b' };
+const downstream = { node_key:'l2', source_a:'l1', status:'completed', team_a:'b', team_b:'c', winner_id:'c' };
+assert.ok(resultLocked(opening, [downstream, bye, opening]), 'Lock through automatic byes regardless of array ordering');
+assert.equal(resultLocked(opening, [opening, bye, {...downstream, status:'pending'}]), false);
+assert.equal(teamLosses('b', [opening,bye,downstream]), 2);
+assert.equal(teamLosses('a', [opening,bye,downstream]), 0);
+assert.equal(teamLosses('b', [opening,bye,{...downstream,status:'pending'}]), 1);
+console.log('BO3 score boundaries, transitive result locks and second-loss status passed.');

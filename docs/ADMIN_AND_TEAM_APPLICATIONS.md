@@ -1,5 +1,15 @@
 # Admin and tournament entry update
 
+## Admin dashboard refresh — 18 October 2026
+
+Deployed to https://oggaming.pk with build `kxEaUY2w8M9ysoRCst4Xk`. Production build, lint, existing regression suite, new UI interaction tests and isolated Postgres checks passed. Separate headless previews verified desktop and 390px mobile layouts without navigating the user’s browser; no horizontal page overflow was found. Live public pages/styles returned 200, anonymous analytics/deletion returned 401, foreign-origin deletion returned 403, and FACEIT/Steam login starts returned their expected provider redirects. No live tournament was deleted during verification.
+
+- Tournament creation and editing use an accessible popup. Tournament cards provide Edit, Manage bracket and Delete. Deletion requires the exact current title, checks administrator access on the server, and atomically removes the bracket, entries and private application contacts. It does not issue refunds. Historical activity logs remain.
+- Analytics uses actual registration records aggregated across all pages in Postgres, with 7/30/90-day and tournament filters. Daily figures include zero-activity days; approval distribution and verified/unverified entry fees reflect the entries submitted in the selected period. They are not payment processor balances. Dates use Pakistan time. No estimated traffic or growth data is shown.
+- The Teams tab defaults to tournament applications, including guest entries, with roster, payment, approval and check-in states. A separate FACEIT squads directory shows teams created on the public Teams page and their accepted/invited members. Search is available in both directories.
+- Notifications is now Activity, with readable event descriptions, event-type and delivery-status filters, compact rows and retry for failed deliveries. An explicit message explains when external delivery is not configured.
+- Migration `20261017193133_admin_dashboard_reporting.sql` adds restricted reporting/deletion RPCs and reporting indexes. It does not remove existing tournaments. `tests/admin-dashboard.sql` exercises filtering, sums, permissions, exact-title confirmation, cascading deletion and isolation from other events in an in-memory Postgres database. `tests/admin-dashboard.test.mjs` covers UI interactions and supports private fixture previews with `--preview`.
+
 ## Manual bracket matchups — 15 October 2026
 
 In Administration → Tournaments, choose **Manage bracket**, then **Manage matchups**. Select Team A and Team B for each opening match. Choosing an already assigned team swaps it with the team in that slot. Empty slots receive byes, but every match must contain at least one team and each entrant must appear exactly once.

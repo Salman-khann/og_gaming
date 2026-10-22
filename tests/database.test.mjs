@@ -3,6 +3,7 @@ import { PGlite } from '@electric-sql/pglite';
 import { readFileSync, readdirSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import ts from 'typescript';
+import {testScorecards} from './scorecards-database.mjs';
 import {testBrackets} from './bracket-database.mjs';
 import {testPairingManagement} from './bracket-pairings-database.mjs';
 const db = new PGlite();
@@ -25,7 +26,7 @@ try {
     sql = sql.replace(/^CREATE EXTENSION IF NOT EXISTS pg_cron;\r?\n/gm, '').replace(/^SELECT cron\.schedule\([^\n]+\);\r?\n?/gm, '');
     try { await db.exec(sql); } catch (error) { throw new Error('Migration failed: ' + name, { cause: error }); }
   }
-  for (const fixture of ['arena-database.sql', 'guest-matches.sql', 'tournament-management.sql', 'arena-security.sql','community.sql','operations.sql','audit-regressions.sql','feature-retirement.sql','open-team-applications.sql']) {
+  for (const fixture of ['arena-database.sql', 'guest-matches.sql', 'tournament-management.sql', 'arena-security.sql','community.sql','operations.sql','audit-regressions.sql','feature-retirement.sql','open-team-applications.sql','admin-dashboard.sql']) {
     await db.exec(readFileSync(new URL(fixture, import.meta.url), 'utf8'));
     console.log('Database fixture passed: ' + fixture);
   }
@@ -34,6 +35,7 @@ try {
   const {buildBracket}=await import('data:text/javascript;base64,'+Buffer.from(engine).toString('base64'));
   await testBrackets(db,buildBracket);
   await testPairingManagement(db,buildBracket);
+  await testScorecards(db,buildBracket);
   console.log('All migrations, RLS, match expiry, ownership, capacity, payment and bracket checks passed in isolated Postgres.');
 } catch (error) {
   console.error(error.message, error.cause?.message || '', error.where || error.cause?.where || '');

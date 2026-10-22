@@ -5,10 +5,17 @@ const compile = source => ts.transpileModule(source, { compilerOptions: { module
 const moduleUrl = source => 'data:text/javascript;base64,' + Buffer.from(compile(source)).toString('base64');
 const engineUrl = moduleUrl(readFileSync(new URL('../src/lib/bracket-engine.ts', import.meta.url), 'utf8'));
 const source = readFileSync(new URL('../src/lib/bracket-pairings.ts', import.meta.url), 'utf8').replace("'./bracket-engine'", JSON.stringify(engineUrl));
-const { automaticPairings, validatePairings, buildPairedBracket } = await import(moduleUrl(source));
-for (const count of [2, 3, 5, 8, 16, 128]) {
+const { automaticPairings, randomPairings, validatePairings, buildPairedBracket } = await import(moduleUrl(source));
+for (const count of [2, 3, 5, 8, 16, 20, 128]) {
   const ids = Array.from({ length: count }, (_, i) => 'team-' + i), automatic = automaticPairings(ids);
   assert.deepEqual(validatePairings(automatic, ids), automatic);
+  const before=[...ids], random=Math.random;
+  let draw;
+  try { Math.random=()=>0; draw=randomPairings(ids); } finally { Math.random=random; }
+  assert.deepEqual(ids,before,'Randomising must not mutate the entrant list');
+  assert.deepEqual(validatePairings(draw,ids),draw);
+  assert.notDeepEqual(draw,automatic,'A shuffled draw changes assigned slots');
+  assert.equal(draw.filter(p=>!p.team_a||!p.team_b).length,automatic.filter(p=>!p.team_a||!p.team_b).length);
   // Reverse all assigned teams while preserving the number and placement of byes.
   const reversed = [...ids].reverse();
   const custom = automatic.map(pair => ({ team_a: pair.team_a ? reversed.shift() : null, team_b: pair.team_b ? reversed.shift() : null }));

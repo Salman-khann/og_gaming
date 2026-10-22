@@ -3,6 +3,7 @@ import { connection } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { apiError, ApiError, requireProfile, sameOrigin, uuidField, integer, jsonObject } from '@/lib/api';
 import { buildPairedBracket, validatePairings } from '@/lib/bracket-pairings';
+import { validSeriesScore } from '@/lib/bracket-series';
 import { dispatchAfterResponse } from '@/lib/notifications';
 async function eligibleEntrants(eventId: string) {
   const admin = createAdminClient();
@@ -64,14 +65,21 @@ export async function PATCH(request: Request) {
       if (opening.error) throw new ApiError('Unable to load opening matches.', 503);
       const ids = (opening.data || []).flatMap(match => [match.team_a, match.team_b]).filter((id): id is string => typeof id === 'string');
       let pairings;
-      try { pairings = validatePairings(body.pairings, ids); }
+      try { pairings = validatePairings(body.pairings, ids, opening.data?.length); }
       catch (error) { throw new ApiError(error instanceof Error ? error.message : 'Invalid matchups.'); }
       const result = await admin.rpc('set_competition_pairings', { event_id: eventId, pairings });
       if (result.error) throw new ApiError(result.error.message, 409);
       return Response.json({ success: true });
     }
+    if (body.action === 'clear_result') {
+      const { error } = await createAdminClient().rpc('clear_competition_result', { game_id: uuidField(body.match_id, 'match') });
+      if (error) throw new ApiError(error.message, 409);
+      return Response.json({ success: true });
+    }
     if (body.action !== undefined) throw new ApiError('Invalid bracket action.');
-    const { error } = await createAdminClient().rpc('record_competition_result', { game_id: uuidField(body.match_id, 'match'), a_score: integer(body.score_a, 0, 100), b_score: integer(body.score_b, 0, 100) });
+    const a = integer(body.score_a, 0, 2), b = integer(body.score_b, 0, 2);
+    if (!validSeriesScore(a, b)) throw new ApiError('A BO3 result must be 2–0, 2–1, 1–2 or 0–2. Enter maps won, not rounds.');
+    const { error } = await createAdminClient().rpc('record_competition_result', { game_id: uuidField(body.match_id, 'match'), a_score: a, b_score: b });
     if (error) throw new ApiError(error.message, 409);
     return Response.json({ success: true });
   } catch (error) { return apiError(error); }

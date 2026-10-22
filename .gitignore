@@ -19,10 +19,20 @@
 
 # production
 /build
+/.deployment/
 
 # misc
 .DS_Store
 *.pem
+*.p12
+*.pfx
+*.dump
+*.backup
+*.sql.gz
+*.ogbackup
+.pgpass
+/backups/
+/recovery-private/
 
 # debug
 npm-debug.log*

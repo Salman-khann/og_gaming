@@ -4,7 +4,8 @@ import { apiError, ApiError, sameOrigin, textField, jsonObject, profileColumns }
 import { cookies } from 'next/headers';
 import { getSteamName } from '@/lib/steam-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { rateLimit } from '@/lib/rate-limit';
+import { rateLimit, rateLimitSubject } from '@/lib/rate-limit';
+import { rejectBotField } from '@/lib/api-input';
 export async function GET() {
   await connection();
   try {
@@ -38,11 +39,13 @@ export async function POST(request: Request) {
       return Response.json({ success: true });
     }
     if (!['login', 'signup'].includes(String(body.action))) throw new ApiError('Invalid authentication action.');
+    rejectBotField(body);
     const email = textField(body.email, 'email', 254);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new ApiError('Enter a valid email address.');
     const password = body.password;
     if (typeof password !== 'string' || password.length < 8 || password.length > 128) throw new ApiError('Use a password with 8–128 characters.');
     await rateLimit(request,body.action==='signup'?'signup':'password-login',body.action==='signup'?10:30,body.action==='signup'?3600:60);
+    await rateLimitSubject(body.action==='signup'?'signup-email':'login-email',email.toLowerCase(),body.action==='signup'?3:10,900);
     if (body.action === 'signup') {
       const nickname = textField(body.nickname, 'player name', 40);
       const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || new URL(request.url).origin;

@@ -1,3 +1,4 @@
+import 'server-only';
 import { after } from 'next/server';
 import { createAdminClient } from './supabase/admin';
 type Notice = { id: string; channel: string; recipient: string; event_type: string; payload: { id?: string; name?: string }; attempts: number; event_key: string };

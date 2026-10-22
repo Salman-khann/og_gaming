@@ -5,35 +5,60 @@ export type BracketNode = {
 };
 export function buildBracket(teams: string[], type: 'single' | 'double'): BracketNode[] {
   if (teams.length < 2 || teams.length > 128 || new Set(teams).size !== teams.length) throw new Error('A bracket needs 2–128 unique teams.');
-  let size = 2;
-  while (size < teams.length) size *= 2;
-  const rounds = Math.log2(size), nodes: BracketNode[] = [], winners: BracketNode[][] = [];
-  let seeds = [1, 2];
-  while (seeds.length < size) seeds = seeds.flatMap(seed => [seed, seeds.length * 2 + 1 - seed]);
-  function node(bracket: BracketNode['bracket'], round: number, position: number, a: string | null, b: string | null, outcomeA: 'winner' | 'loser' = 'winner', outcomeB: 'winner' | 'loser' = 'winner', direct = false) {
-    const value: BracketNode = { key: `${bracket}:${round}:${position}`, bracket, round, position, team_a: direct ? a : null, team_b: direct ? b : null, source_a: direct ? null : a, source_b: direct ? null : b, outcome_a: outcomeA, outcome_b: outcomeB };
+  const nodes: BracketNode[] = [];
+  type Entry = { key: string; outcome: 'winner' | 'loser' };
+  const winner = (match: BracketNode): Entry => ({ key: match.key, outcome: 'winner' });
+  const loser = (match: BracketNode): Entry => ({ key: match.key, outcome: 'loser' });
+  function match(bracket: BracketNode['bracket'], round: number, position: number, a: Entry, b: Entry) {
+    const value: BracketNode = { key: `${bracket}:${round}:${position}`, bracket, round, position,
+      team_a: null, team_b: null, source_a: a.key, source_b: b.key, outcome_a: a.outcome, outcome_b: b.outcome };
     nodes.push(value); return value;
   }
-  for (let r = 1; r <= rounds; r++) {
-    const row: BracketNode[] = [];
-    for (let p = 1; p <= size / 2 ** r; p++) row.push(r === 1
-      ? node('winners', r, p, teams[seeds[2 * p - 2] - 1] || null, teams[seeds[2 * p - 1] - 1] || null, 'winner', 'winner', true)
-      : node('winners', r, p, winners[r - 2][2 * p - 2].key, winners[r - 2][2 * p - 1].key));
-    winners.push(row);
+  // Everyone plays in the opening round. Only an odd entrant needs a bye.
+  const opening: BracketNode[] = [];
+  for (let i = 0; i < teams.length; i += 2) {
+    const value: BracketNode = { key: `winners:1:${i / 2 + 1}`, bracket: 'winners', round: 1, position: i / 2 + 1,
+      team_a: teams[i], team_b: teams[i + 1] || null, source_a: null, source_b: null, outcome_a: 'winner', outcome_b: 'winner' };
+    nodes.push(value); opening.push(value);
   }
-  if (type === 'single') return nodes;
-  let losers: BracketNode[];
-  if (rounds === 1) losers = [winners[0][0]];
-  else {
-    losers = Array.from({ length: size / 4 }, (_, i) => node('losers', 1, i + 1, winners[0][2 * i].key, winners[0][2 * i + 1].key, 'loser', 'loser'));
-    for (let r = 2; r <= rounds; r++) {
-      // Reverse each drop-in row to delay repeat pairings across the two paths.
-      losers = losers.map((previous, i) => node('losers', 2 * r - 2, i + 1, previous.key, winners[r - 1][winners[r - 1].length - 1 - i].key, 'winner', 'loser'));
-      if (r < rounds) losers = Array.from({ length: losers.length / 2 }, (_, i) => node('losers', 2 * r - 1, i + 1, losers[2 * i].key, losers[2 * i + 1].key));
+  let upper = opening.map(winner), lower = opening.filter(m => m.team_b).map(loser);
+  let upperRound = 1, lowerRound = 0;
+  function reduceLower(target: number) {
+    while (lower.length > target) {
+      lowerRound++;
+      const next: Entry[] = [];
+      for (let i = 0; i + 1 < lower.length; i += 2) next.push(winner(match('losers', lowerRound, i / 2 + 1, lower[i], lower[i + 1])));
+      // Carry an unmatched entrant forward by reference, without a fake match.
+      if (lower.length % 2) next.push(lower[lower.length - 1]);
+      lower = next;
     }
   }
-  const final = node('final', 1, 1, winners[rounds - 1][0].key, losers[0].key, 'winner', rounds === 1 ? 'loser' : 'winner');
-  node('reset', 1, 1, final.key, final.key, 'winner', 'loser');
+  while (upper.length > 1) {
+    upperRound++;
+    const next: Entry[] = [], drops: Entry[] = [];
+    for (let i = 0; i + 1 < upper.length; i += 2) {
+      const game = match('winners', upperRound, i / 2 + 1, upper[i], upper[i + 1]);
+      next.push(winner(game)); drops.push(loser(game));
+    }
+    if (upper.length % 2) next.push(upper[upper.length - 1]);
+    upper = next;
+    if (type === 'double') {
+      reduceLower(drops.length);
+      // Pair new drop-ins against surviving lower-bracket teams, reversing the
+      // drop-in order to delay immediate repeat opponents when possible.
+      lowerRound++;
+      const survivors: Entry[] = [];
+      for (let i = 0; i < drops.length; i++) {
+        const drop = drops[drops.length - 1 - i];
+        survivors.push(lower[i] ? winner(match('losers', lowerRound, i + 1, lower[i], drop)) : drop);
+      }
+      lower = survivors;
+    }
+  }
+  if (type === 'single') return nodes;
+  reduceLower(1);
+  const final = match('final', 1, 1, upper[0], lower[0]);
+  match('reset', 1, 1, winner(final), loser(final));
   return nodes;
 }
 

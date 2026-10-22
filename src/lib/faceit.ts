@@ -1,3 +1,4 @@
+import 'server-only';
 export interface FaceitPlayerInfo { id: string; nickname: string; avatar: string; country: string; elo: number; level: number; gameId: string }
 const cache = new Map<string, { data: FaceitPlayerInfo; expires: number }>();
 const inFlight = new Map<string, Promise<FaceitPlayerInfo | null>>();

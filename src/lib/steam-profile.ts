@@ -1,3 +1,4 @@
+import 'server-only';
 const cache = new Map<string, { name: string; expires: number }>();
 export function steamNameFromXml(xml: string): string | null {
   const raw = /<steamID>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([^<]*))<\/steamID>/.exec(xml);
