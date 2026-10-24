@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node tests/namecheap-loader.test.mjs && node tests/security-controls.test.mjs && node tests/backup-crypto.test.mjs && node tests/resource-loading.test.mjs && node tests/community-media.test.mjs && node tests/ui-regressions.test.mjs && node tests/cyber-background.test.mjs && node tests/steam-openid.test.mjs && node tests/match-input.test.mjs && node tests/faceit-verification.test.mjs && node tests/player-profile-query.test.mjs && node tests/api-input.test.mjs && node tests/bracket-engine.test.mjs && node tests/bracket-schedule.test.mjs && node tests/bracket-reset.test.mjs && node tests/bracket-series.test.mjs && node tests/scorecard-image.test.mjs && node tests/bracket-presentation.test.mjs && node tests/bracket-layout.test.mjs && node tests/bracket-pairings.test.mjs && node tests/notifications.test.mjs && node tests/tournament-prerender.test.mjs && node tests/admin-presentation.test.mjs && node tests/admin-dashboard.test.mjs && node tests/database.test.mjs",
+    "test": "npm run database:check && npm run test:unit && node tests/namecheap-loader.test.mjs && node tests/security-controls.test.mjs && node tests/backup-crypto.test.mjs && node tests/resource-loading.test.mjs && node tests/community-media.test.mjs && node tests/cyber-background.test.mjs && node tests/steam-openid.test.mjs && node tests/match-input.test.mjs && node tests/api-input.test.mjs && node tests/bracket-engine.test.mjs && node tests/bracket-schedule.test.mjs && node tests/bracket-reset.test.mjs && node tests/bracket-series.test.mjs && node tests/scorecard-image.test.mjs && node tests/bracket-presentation.test.mjs && node tests/bracket-layout.test.mjs && node tests/bracket-pairings.test.mjs && node tests/admin-dashboard.test.mjs && node tests/database.test.mjs",
     "typecheck": "tsc --noEmit",
     "test:bracket-reset": "node tests/bracket-reset.test.mjs",
     "security:check": "node scripts/security-check.mjs",
@@ -20,7 +20,15 @@
     "prebuild:namecheap": "npm run security:check",
     "build:namecheap": "node scripts/build-namecheap.mjs",
     "package:namecheap": "node scripts/package-namecheap.mjs",
-    "start:cpanel": "node server.js"
+    "start:cpanel": "node server.js",
+    "repomix": "repomix",
+    "repomix:md": "repomix --style markdown -o repomix-output.md",
+    "database:setup": "node scripts/build-database-setup.mjs",
+    "database:check": "node scripts/build-database-setup.mjs --check",
+    "format": "prettier --write src tests/unit scripts/lib",
+    "format:check": "prettier --check src tests/unit scripts/lib",
+    "test:unit": "vitest run",
+    "test:ui": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -29,7 +37,7 @@
     "class-variance-authority": "^0.7.1",
     "cn": "^0.4.0",
     "lucide-react": "^1.52.0",
-    "next": "16.4.0",
+    "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-dropzone": "20.1.4",
@@ -37,14 +45,24 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.9",
+    "@playwright/test": "1.64.1",
     "@tailwindcss/turbopack": "^4",
-    "@types/node": "^20",
+    "@types/archiver": "8.0.0",
+    "@types/node": "24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "archiver": "8.0.0",
     "eslint": "^9",
-    "eslint-config-next": "16.4.0",
+    "eslint-config-next": "16.4.3",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-prettier": "5.5.7",
+    "lightningcss": "1.33.0",
+    "prettier": "3.9.10",
+    "repomix": "^1.18.1",
     "shadcn": "4.21.3",
+    "supabase": "2.122.0",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "5.0.5"
   }
 }

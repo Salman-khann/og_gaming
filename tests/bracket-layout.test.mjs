@@ -6,7 +6,23 @@ async function load(path) {
   return import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 }
 const { buildBracket } = await load('../src/lib/bracket-engine.ts');
-const { layoutBracket, bracketChampion, BRACKET_CARD_WIDTH, BRACKET_CARD_HEIGHT } = await load('../src/lib/bracket-layout.ts');
+const { layoutBracket, bracketChampion, bracketScale, BRACKET_CARD_WIDTH, BRACKET_CARD_HEIGHT } = await load('../src/lib/bracket-layout.ts');
+// A 20-team upper bracket should fit ordinary desktops, while phones keep readable cards.
+const twentyTeams = buildBracket(Array.from({ length: 20 }, (_, i) => 'team-' + i), 'double');
+const upperWidth = layoutBracket(twentyTeams.filter(match => match.bracket === 'winners')).width;
+for (const viewport of [1440, 1920, 2560]) {
+  const available = viewport - Math.min(64, viewport * .04) - 32;
+  assert.ok(upperWidth * bracketScale(available, upperWidth) <= available + .01, 'All upper rounds fit on desktop');
+}
+for (const laneName of ['winners', 'losers']) for (const available of [1335, 1824, 2464]) {
+  const responsive = layoutBracket(twentyTeams.filter(match => match.bracket === laneName), BRACKET_CARD_HEIGHT, available);
+  assert.ok(responsive.width * bracketScale(available, responsive.width) <= available + .01, 'Upper and lower rounds fit desktop width');
+  assert.ok(responsive.cardWidth >= 196 && responsive.cardWidth <= BRACKET_CARD_WIDTH);
+  for (const placement of responsive.placements) assert.ok(placement.x + responsive.cardWidth <= responsive.width);
+}
+assert.equal(bracketScale(0, upperWidth), 1, 'Server rendering does not guess a viewport');
+assert.equal(bracketScale(326, upperWidth), .9, 'Mobile retains readable names and schedules');
+assert.equal(bracketScale(1000, 3000), .8, 'Large draws remain legible instead of shrinking without a limit');
 const lane = match => ['final', 'reset'].includes(match.bracket) ? 'finals' : match.bracket;
 const asMatches = nodes => nodes.map(node => ({ ...node, id: node.key, node_key: node.key, winner_id: null, status: 'pending', score_a: null, score_b: null }));
 for (const count of [2, 3, 5, 8, 16, 31, 64, 128]) for (const type of ['single', 'double']) {

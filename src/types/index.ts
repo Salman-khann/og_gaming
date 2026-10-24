@@ -28,7 +28,7 @@ export interface MatchPlayer {
 }
 
 export interface MatchRequest {
-  balanced_teams?: {a:MatchPlayer[];b:MatchPlayer[];difference:number}|null;
+  balanced_teams?: { a: MatchPlayer[]; b: MatchPlayer[]; difference: number } | null;
   id: string;
   creator_id: string | null;
   can_delete?: boolean;
@@ -86,7 +86,13 @@ export type RegistrationStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Registration {
   can_manage?: boolean;
-  contact?: {captain_name:string;email:string;phone:string;city:string;notes:string} | null;
+  contact?: {
+    captain_name: string;
+    email: string;
+    phone: string;
+    city: string;
+    notes: string;
+  } | null;
   amount_due: number;
   no_show: boolean;
   id: string;
@@ -118,4 +124,22 @@ export interface NotificationLog {
   sent_at?: string | null;
 }
 
-export interface TournamentMatch { id: string; tournament_id: string; bracket: 'winners' | 'losers' | 'final' | 'reset'; round: number; position: number; team_a: string | null; team_b: string | null; winner_id: string | null; score_a: number | null; score_b: number | null; status: 'pending' | 'completed' | 'bye'; node_key?: string | null; source_a?: string | null; source_b?: string | null; outcome_a?: 'winner' | 'loser'; outcome_b?: 'winner' | 'loser'; scheduled_at?: string | null }
+export interface TournamentMatch {
+  id: string;
+  tournament_id: string;
+  bracket: 'winners' | 'losers' | 'final' | 'reset';
+  round: number;
+  position: number;
+  team_a: string | null;
+  team_b: string | null;
+  winner_id: string | null;
+  score_a: number | null;
+  score_b: number | null;
+  status: 'pending' | 'completed' | 'bye';
+  node_key?: string | null;
+  source_a?: string | null;
+  source_b?: string | null;
+  outcome_a?: 'winner' | 'loser';
+  outcome_b?: 'winner' | 'loser';
+  scheduled_at?: string | null;
+}

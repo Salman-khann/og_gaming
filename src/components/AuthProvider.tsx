@@ -2,7 +2,21 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { Profile } from '@/types';
 import { useRouter } from 'next/navigation';
-const AuthContext = createContext<{ profile: Profile | null; loading: boolean; error: string; loginError: string; refresh: () => Promise<void>; logout: () => Promise<void> }>({ profile: null, loading: true, error: '', loginError: '', refresh: async () => {}, logout: async () => {} });
+const AuthContext = createContext<{
+  profile: Profile | null;
+  loading: boolean;
+  error: string;
+  loginError: string;
+  refresh: () => Promise<void>;
+  logout: () => Promise<void>;
+}>({
+  profile: null,
+  loading: true,
+  error: '',
+  loginError: '',
+  refresh: async () => {},
+  logout: async () => {},
+});
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -10,7 +24,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState('');
   const [loginError, setLoginError] = useState('');
   const controller = useRef<AbortController | null>(null);
+  const lastRefresh = useRef(0);
   const refresh = useCallback(async () => {
+    lastRefresh.current = Date.now();
     controller.current?.abort();
     const request = new AbortController();
     controller.current = request;
@@ -19,28 +35,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const data = await response.json();
       if (!response.ok) throw new Error(data.error);
       if (request.signal.aborted) return;
-      setProfile(data.profile); setError('');
-      setLoginError(previous => data.loginError || (data.profile ? '' : previous));
-    } catch (error) { if (!request.signal.aborted) { setProfile(null); setError(error instanceof Error ? error.message : 'Unable to load account.'); } }
-    finally { if (!request.signal.aborted) setLoading(false); }
+      setProfile(data.profile);
+      setError('');
+      setLoginError((previous) => data.loginError || (data.profile ? '' : previous));
+    } catch (error) {
+      if (!request.signal.aborted) {
+        setProfile(null);
+        setError(error instanceof Error ? error.message : 'Unable to load account.');
+      }
+    } finally {
+      if (!request.signal.aborted) setLoading(false);
+    }
   }, []);
   useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 0);
-    const onFocus = () => { if (document.visibilityState === 'visible') void refresh(); };
+    const onFocus = () => {
+      if (document.visibilityState === 'visible' && Date.now() - lastRefresh.current >= 15000)
+        void refresh();
+    };
     window.addEventListener('focus', onFocus);
-    return () => { window.clearTimeout(timer); window.removeEventListener('focus', onFocus); controller.current?.abort(); };
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('focus', onFocus);
+      controller.current?.abort();
+    };
   }, [refresh]);
   const logout = async () => {
     controller.current?.abort();
     try {
-      const response = await fetch('/api/auth', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout' }) });
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'logout' }),
+      });
       if (!response.ok) throw new Error('Unable to sign out. Try again.');
       controller.current?.abort();
-      setProfile(null); setError(''); setLoginError('');
-      router.push('/'); router.refresh();
-    } catch { setError('Unable to sign out. Try again.'); }
-    finally { setLoading(false); }
+      setProfile(null);
+      setError('');
+      setLoginError('');
+      router.push('/');
+      router.refresh();
+    } catch {
+      setError('Unable to sign out. Try again.');
+    } finally {
+      setLoading(false);
+    }
   };
-  return <AuthContext.Provider value={{ profile, loading, error, loginError, refresh, logout }}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={{ profile, loading, error, loginError, refresh, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 export const useAuth = () => useContext(AuthContext);

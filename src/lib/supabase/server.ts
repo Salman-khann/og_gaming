@@ -8,12 +8,19 @@ export async function createClient() {
   }
   const store = await cookies();
   return createServerClient(url, key, {
-    cookieOptions: { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production' },
+    cookieOptions: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    },
     cookies: {
       getAll: () => store.getAll(),
       setAll: (values) => {
-        try { values.forEach(({ name, value, options }) => store.set(name, value, options)); }
-        catch { /* Session route refreshes cookies; server components cannot write them. */ }
+        try {
+          values.forEach(({ name, value, options }) => store.set(name, value, options));
+        } catch {
+          /* Session route refreshes cookies; server components cannot write them. */
+        }
       },
     },
   });

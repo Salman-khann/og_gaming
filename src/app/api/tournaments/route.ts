@@ -1,32 +1,81 @@
+import { SCORECARD_BUCKET } from '@/lib/scorecard-image';
+import { verifyCaptcha } from '@/lib/captcha';
 import { connection } from 'next/server';
 import { readArena } from '@/lib/data-service';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { apiError, ApiError, requireProfile, sameOrigin, integer, money, textField, jsonObject, uuidField } from '@/lib/api';
-import {applicationInput} from '@/lib/team-applications';
-import {createClient} from '@/lib/supabase/server';
-import {cookies} from 'next/headers';
-import {newDeletionCredential} from '@/lib/match-ownership';
+import {
+  apiError,
+  ApiError,
+  requireProfile,
+  sameOrigin,
+  integer,
+  money,
+  textField,
+  jsonObject,
+  uuidField,
+  dbError,
+} from '@/lib/api';
+import { applicationInput } from '@/lib/team-applications';
+import { createClient } from '@/lib/supabase/server';
+import { cookies } from 'next/headers';
+import { newDeletionCredential } from '@/lib/match-ownership';
 import { dispatchAfterResponse } from '@/lib/notifications';
 import { rateLimit, rateLimitSubject } from '@/lib/rate-limit';
 import { rejectBotField } from '@/lib/api-input';
 const statuses = ['draft', 'upcoming', 'ongoing', 'completed', 'cancelled'];
 function tournamentFields(body: Record<string, unknown>) {
-  const min = integer(body.min_level, 1, 10), max = integer(body.max_level, min, 10);
-  const start = new Date(String(body.start_date)).getTime(), deadline = new Date(String(body.registration_deadline)).getTime();
-  if (!Number.isFinite(start) || !Number.isFinite(deadline) || deadline > start) throw new ApiError('Registration deadline must be on or before the start date.');
+  const min = integer(body.min_level, 1, 10),
+    max = integer(body.max_level, min, 10);
+  const start = new Date(String(body.start_date)).getTime(),
+    deadline = new Date(String(body.registration_deadline)).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(deadline) || deadline > start)
+    throw new ApiError('Registration deadline must be on or before the start date.');
   if (!statuses.includes(String(body.status))) throw new ApiError('Invalid tournament status.');
   const title = textField(body.title, 'title', 120);
   const slug = textField(body.slug, 'slug', 140);
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new ApiError('Slug must contain lowercase letters, numbers, and hyphens.');
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))
+    throw new ApiError('Slug must contain lowercase letters, numbers, and hyphens.');
   const entryFee = money(body.entry_fee === undefined ? 0 : body.entry_fee);
   const bracketType = body.bracket_type || 'single';
-  if (!['single','double'].includes(String(bracketType))) throw new ApiError('Invalid bracket type.');
-  return { title, slug, bracket_type:bracketType,entry_fee: entryFee, payment_instructions: String(body.payment_instructions || '').slice(0, 2000), description: String(body.description || '').slice(0, 4000), game: textField(body.game, 'game', 80), format: textField(body.format, 'format', 100), min_level: min, max_level: max, max_teams: integer(body.max_teams, 2, 128), start_date: new Date(start).toISOString(), registration_deadline: new Date(deadline).toISOString(), status: body.status, prize_pool: String(body.prize_pool || '').slice(0, 200), rules: String(body.rules || '').slice(0, 8000) };
+  if (!['single', 'double'].includes(String(bracketType)))
+    throw new ApiError('Invalid bracket type.');
+  return {
+    title,
+    slug,
+    bracket_type: bracketType,
+    entry_fee: entryFee,
+    payment_instructions: String(body.payment_instructions || '').slice(0, 2000),
+    description: String(body.description || '').slice(0, 4000),
+    game: textField(body.game, 'game', 80),
+    format: textField(body.format, 'format', 100),
+    min_level: min,
+    max_level: max,
+    max_teams: integer(body.max_teams, 2, 128),
+    start_date: new Date(start).toISOString(),
+    registration_deadline: new Date(deadline).toISOString(),
+    status: body.status,
+    prize_pool: String(body.prize_pool || '').slice(0, 200),
+    rules: String(body.rules || '').slice(0, 8000),
+  };
 }
-export async function GET(request:Request) {
+export async function GET(request: Request) {
   await connection();
-  try { const params=new URL(request.url).searchParams,admin=params.get('admin')==='1';if(admin)await requireProfile(true);return Response.json(await readArena('tournaments',integer(params.get('page')||1,1,10000),integer(params.get('registration_page')||1,1,10000),admin), { headers: { 'Cache-Control': 'no-store' } }); }
-  catch (error) { return apiError(error); }
+  try {
+    const params = new URL(request.url).searchParams,
+      admin = params.get('admin') === '1';
+    if (admin) await requireProfile(true);
+    return Response.json(
+      await readArena(
+        'tournaments',
+        integer(params.get('page') || 1, 1, 10000),
+        integer(params.get('registration_page') || 1, 1, 10000),
+        admin,
+      ),
+      { headers: { 'Cache-Control': 'no-store' } },
+    );
+  } catch (error) {
+    return apiError(error);
+  }
 }
 export async function POST(request: Request) {
   try {
@@ -34,24 +83,50 @@ export async function POST(request: Request) {
     const body = await jsonObject(request);
     if (body.action === 'checkin') throw new ApiError('Tournament check-in has been removed.', 410);
     if (body.action === 'create') {
-      const {db}=await requireProfile(true);
-      const { data: tournament, error } = await db.from('tournaments').insert(tournamentFields(body)).select().single();
+      const { db } = await requireProfile(true);
+      const { data: tournament, error } = await db
+        .from('tournaments')
+        .insert(tournamentFields(body))
+        .select()
+        .single();
       if (error) throw new ApiError('Unable to save tournament. Make sure the slug is unique.');
       return Response.json({ success: true, tournament }, { status: 201 });
     }
     rejectBotField(body);
-    const {event,application}=applicationInput(body);
-    const id=uuidField(event,'tournament'),session=await createClient();const {data:{user}}=await session.auth.getUser();if(user)await requireProfile();
-    await rateLimit(request,'registration',5,300,user?.id);
-    await rateLimitSubject('registration-phone',application.phone,5,3600);
-    await rateLimitSubject('registration-email',application.email.toLowerCase(),5,3600);
-    const credential=newDeletionCredential();
-    const { data: registration, error } = await createAdminClient().rpc('submit_team_application',{actor_id:user?.id||null,event_id:id,application,credential_hash:credential.hash});
-    if (error) throw new ApiError(error.code === '23505' ? 'This team or captain is already registered.' : error.message, 409);
-    (await cookies()).set('og_entry_'+registration.id,credential.token,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:60*60*24*90});
+    const { event, application } = applicationInput(body);
+    const id = uuidField(event, 'tournament'),
+      session = await createClient();
+    const {
+      data: { user },
+    } = await session.auth.getUser();
+    if (user) await requireProfile(false, { db: session, user });
+    await rateLimit(request, 'registration', 5, 300, user?.id);
+    await rateLimitSubject('registration-phone', application.phone, 5, 3600);
+    await rateLimitSubject('registration-email', application.email.toLowerCase(), 5, 3600);
+    await verifyCaptcha(request, body.captcha_token, 'registration');
+    const credential = newDeletionCredential();
+    const { data: registration, error } = await createAdminClient().rpc('submit_team_application', {
+      actor_id: user?.id || null,
+      event_id: id,
+      application,
+      credential_hash: credential.hash,
+    });
+    if (error)
+      throw error.code === '23505'
+        ? new ApiError('This team or captain is already registered.', 409)
+        : dbError(error);
+    (await cookies()).set('og_entry_' + registration.id, credential.token, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 90,
+    });
     dispatchAfterResponse();
     return Response.json({ success: true, registration }, { status: 201 });
-  } catch (error) { return apiError(error); }
+  } catch (error) {
+    return apiError(error);
+  }
 }
 export async function PATCH(request: Request) {
   try {
@@ -59,21 +134,39 @@ export async function PATCH(request: Request) {
     const { db } = await requireProfile(true);
     const body = await jsonObject(request);
     if (body.action === 'verify_payment') {
-      const { error } = await createAdminClient().rpc('set_registration_payment', { registration_id: uuidField(body.registration_id, 'registration'), next_payment: body.verified === false ? 'pending' : 'verified' });
-      if (error) throw new ApiError(error.message, 409);
+      const { error } = await createAdminClient().rpc('set_registration_payment', {
+        registration_id: uuidField(body.registration_id, 'registration'),
+        next_payment: body.verified === false ? 'pending' : 'verified',
+      });
+      if (error) throw dbError(error);
     } else if (body.tournament_id) {
-      const { error } = await db.from('tournaments').update({ ...tournamentFields(body), updated_at: new Date().toISOString() }).eq('id', uuidField(body.tournament_id, 'tournament')).select('id').single();
-      if (error) throw new ApiError('Tournament could not be updated. Check its slug and team capacity.', 409);
+      const { error } = await db
+        .from('tournaments')
+        .update({ ...tournamentFields(body), updated_at: new Date().toISOString() })
+        .eq('id', uuidField(body.tournament_id, 'tournament'))
+        .select('id')
+        .single();
+      if (error)
+        throw new ApiError(
+          'Tournament could not be updated. Check its slug and team capacity.',
+          409,
+        );
     } else {
       const id = uuidField(body.registration_id, 'registration');
       if (body.action !== undefined) throw new ApiError('Invalid registration action.');
-      if (!['approved', 'rejected'].includes(String(body.status))) throw new ApiError('Invalid registration status.');
-      const { error } = await db.rpc('review_arena_registration', { registration_id: id, next_status: body.status });
-      if (error) throw new ApiError(error.message, 409);
+      if (!['approved', 'rejected'].includes(String(body.status)))
+        throw new ApiError('Invalid registration status.');
+      const { error } = await db.rpc('review_arena_registration', {
+        registration_id: id,
+        next_status: body.status,
+      });
+      if (error) throw dbError(error);
     }
     dispatchAfterResponse();
     return Response.json({ success: true });
-  } catch (error) { return apiError(error); }
+  } catch (error) {
+    return apiError(error);
+  }
 }
 
 export async function DELETE(request: Request) {
@@ -81,12 +174,25 @@ export async function DELETE(request: Request) {
     sameOrigin(request);
     const { profile } = await requireProfile(true);
     const body = await jsonObject(request);
-    const { error } = await createAdminClient().rpc('admin_delete_tournament', {
+    const admin = createAdminClient();
+    const { data: paths, error } = await admin.rpc('admin_delete_tournament', {
       actor_id: profile.id,
       event_id: uuidField(body.tournament_id, 'tournament'),
       confirmation_title: textField(body.confirmation_title, 'confirmation title', 120),
     });
-    if (error) throw new ApiError(error.message, 409);
+    if (error) throw dbError(error);
+    const objects = Array.isArray(paths)
+      ? paths.filter((path): path is string => typeof path === 'string')
+      : [];
+    for (let index = 0; index < objects.length; index += 100) {
+      const cleanup = await admin.storage
+        .from(SCORECARD_BUCKET)
+        .remove(objects.slice(index, index + 100));
+      if (cleanup.error)
+        console.error('Tournament deleted; private scorecard cleanup needs retry.');
+    }
     return Response.json({ success: true }, { headers: { 'Cache-Control': 'no-store' } });
-  } catch (error) { return apiError(error); }
+  } catch (error) {
+    return apiError(error);
+  }
 }

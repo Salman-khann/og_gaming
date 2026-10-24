@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { runSupabase } from './lib/supabase-cli.mjs';
 import { resolve, relative, isAbsolute } from 'node:path';
 process.loadEnvFile('.env.local');
 const ref = /^([a-z0-9]+)\.supabase\.co$/.exec(new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname)?.[1];
@@ -7,7 +7,7 @@ const file = process.argv[2];
 const root = resolve('supabase');
 const scoped = file && relative(root, resolve(file));
 if (!scoped || scoped.startsWith('..') || isAbsolute(scoped) || !/^[a-zA-Z0-9_./\\-]+\.sql$/.test(file)) throw new Error('Provide a SQL file within supabase/.');
-const result = spawnSync('powershell.exe', ['-NoProfile', '-Command', `npx.cmd --yes supabase db query --linked --project-ref '${ref}' --file '${file}'`], { encoding: 'utf8' });
+const result = runSupabase(['db','query','--linked','--project-ref',ref,'--file',file]);
 if (result.stdout) process.stdout.write(result.stdout);
 if (result.stderr) process.stderr.write(result.stderr);
 process.exitCode = result.status ?? 1;

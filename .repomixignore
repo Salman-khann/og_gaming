@@ -1,0 +1,47 @@
+# Dependencies & Builds
+node_modules/
+.next/
+out/
+build/
+dist/
+.deployment/
+.playwright-mcp/
+scratch/
+
+# Sensitive & Keys
+id_rsa
+id_rsa.pub
+*.pem
+*.key
+*.p12
+*.pfx
+*.dump
+*.backup
+*.sql.gz
+*.ogbackup
+.pgpass
+backups/
+recovery-private/
+.env*
+!.env.example
+
+# Lockfiles & Type info
+package-lock.json
+*.tsbuildinfo
+next-env.d.ts
+
+# Binary & Media Files
+*.pdf
+*.docx
+*.doc
+*.zip
+*.tar.gz
+public/**/*.png
+public/**/*.jpg
+public/**/*.jpeg
+public/**/*.webp
+public/**/*.ico
+public/**/*.woff*
+
+# Repomix Outputs
+repomix-output.*

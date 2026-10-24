@@ -1,0 +1,10 @@
+.page {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  padding-inline: clamp(1rem, 2vw, 2rem);
+}
+
+.page h1 {
+  overflow-wrap: anywhere;
+}

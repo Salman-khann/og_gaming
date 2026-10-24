@@ -1,3 +1,5 @@
+import { loadTestEnvironment } from '../scripts/lib/test-environment.mjs';
+loadTestEnvironment();
 // Only use a local server launched with TRUSTED_CLIENT_IP_HEADER=x-og-test-client-ip.
 // Invalid titles ensure rate-limit checks never create posts or send notifications.
 import assert from 'node:assert/strict';

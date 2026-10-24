@@ -1,0 +1,73 @@
+{
+  "$schema": "https://repomix.com/schemas/latest/schema.json",
+  "input": {
+    "maxFileSize": 10485760
+  },
+  "output": {
+    "filePath": "repomix-output.xml",
+    "style": "xml",
+    "parsableStyle": true,
+    "compress": false,
+    "headerText": "OG Gaming - Next.js tournament & matchmaking web application codebase pack.",
+    "fileSummary": true,
+    "directoryStructure": true,
+    "files": true,
+    "removeComments": false,
+    "removeEmptyLines": false,
+    "topFilesLength": 10,
+    "showLineNumbers": false,
+    "includeEmptyDirectories": false,
+    "truncateBase64": true,
+    "tokenCountTree": 50000,
+    "git": {
+      "sortByChanges": true,
+      "sortByChangesMaxCommits": 50,
+      "includeDiffs": false,
+      "includeLogs": false
+    }
+  },
+  "include": [],
+  "ignore": {
+    "useGitignore": true,
+    "useDefaultPatterns": true,
+    "customPatterns": [
+      "id_rsa",
+      "id_rsa.pub",
+      "*.pem",
+      "*.key",
+      "*.p12",
+      "*.pfx",
+      "*.dump",
+      "*.backup",
+      "*.sql.gz",
+      "*.ogbackup",
+      ".pgpass",
+      "backups/**",
+      "recovery-private/**",
+      ".env*",
+      "package-lock.json",
+      "*.tsbuildinfo",
+      "*.pdf",
+      "*.docx",
+      "*.doc",
+      "*.zip",
+      "*.tar.gz",
+      ".deployment/**",
+      ".playwright-mcp/**",
+      "scratch/**",
+      "public/**/*.png",
+      "public/**/*.jpg",
+      "public/**/*.jpeg",
+      "public/**/*.webp",
+      "public/**/*.ico",
+      "public/**/*.woff*",
+      "repomix-output.*"
+    ]
+  },
+  "security": {
+    "enableSecurityCheck": true
+  },
+  "tokenCount": {
+    "encoding": "o200k_base"
+  }
+}

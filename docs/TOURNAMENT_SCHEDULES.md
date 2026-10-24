@@ -12,6 +12,6 @@ Teams need organiser approval and verified payment where applicable. Check-in co
 
 ## Password-protected reset
 
-Set a long, unique `BRACKET_RESET_PASSWORD` in the server environment and restart/redeploy the server. There is no default password. Keep this separate from login credentials and never use a `NEXT_PUBLIC_` variable. In the admin bracket view, **Reset bracket** prompts for this password. Admin authentication and the password are both required; attempts are rate limited. Passwords are checked only on the server and are not persisted in browser storage.
+In the admin bracket view, **Reset bracket** prompts for the signed-in administrator's account password. The server verifies it with Supabase Auth and checks that the verified user is the same administrator. Attempts are rate limited. An email/password account is required; accounts using only an external login need an account password before using this action. Passwords are not persisted in browser storage. No separate reset-password environment variable is needed.
 
 Reset permanently deletes this tournament's match graph, results and scorecard records, and attempts to remove their private image files. It keeps applications, approval/payment state and the saved schedule, returns the tournament to upcoming status, and allows choosing matchups and generating a fresh bracket. Registration still follows the existing registration deadline. Other tournaments are unaffected.

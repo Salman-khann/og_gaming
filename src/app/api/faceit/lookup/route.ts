@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FaceitError, verifyFaceitPlayer } from '@/lib/faceit';
 import { rateLimit } from '@/lib/rate-limit';
-import { apiError,ApiError } from '@/lib/api';
+import { apiError, ApiError, requireProfile } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -12,11 +12,15 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    await rateLimit(request,'faceit-lookup',30,60);
+    const { profile } = await requireProfile();
+    await rateLimit(request, 'faceit-lookup', 30, 60, profile.id);
     const player = await verifyFaceitPlayer(nickname);
     return NextResponse.json({ player });
   } catch (error) {
-    if(error instanceof ApiError) return apiError(error);
-    return NextResponse.json({ error: error instanceof Error ? error.message : 'FACEIT is unavailable.' }, { status: error instanceof FaceitError ? error.status : 400 });
+    if (error instanceof ApiError) return apiError(error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'FACEIT is unavailable.' },
+      { status: error instanceof FaceitError ? error.status : 400 },
+    );
   }
 }

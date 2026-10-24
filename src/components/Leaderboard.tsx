@@ -1,2 +1,2 @@
 ﻿'use client';
-export {Leaderboard} from './RankingWorkspace';
+export { Leaderboard } from './RankingWorkspace';

@@ -27,7 +27,7 @@ try {
     sql = sql.replace(/^CREATE EXTENSION IF NOT EXISTS pg_cron;\r?\n/gm, '').replace(/^SELECT cron\.schedule\([^\n]+\);\r?\n?/gm, '');
     try { await db.exec(sql); } catch (error) { throw new Error('Migration failed: ' + name, { cause: error }); }
   }
-  for (const fixture of ['arena-database.sql', 'guest-matches.sql', 'tournament-management.sql', 'arena-security.sql','community.sql','operations.sql','audit-regressions.sql','feature-retirement.sql','open-team-applications.sql','admin-dashboard.sql']) {
+  for (const fixture of ['arena-database.sql', 'guest-matches.sql', 'tournament-management.sql', 'arena-security.sql','community.sql','operations.sql','audit-regressions.sql','feature-retirement.sql','open-team-applications.sql','admin-dashboard.sql','security-review.sql']) {
     await db.exec(readFileSync(new URL(fixture, import.meta.url), 'utf8'));
     console.log('Database fixture passed: ' + fixture);
   }

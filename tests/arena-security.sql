@@ -12,7 +12,9 @@ BEGIN
   BEGIN PERFORM phone FROM public.profiles; EXCEPTION WHEN insufficient_privilege THEN denied:=true; END;
   IF NOT denied THEN RAISE EXCEPTION 'Public profile phone leaked'; END IF;
   IF NOT EXISTS(SELECT id FROM public.profiles WHERE id=player) THEN RAISE EXCEPTION 'Public player summaries unavailable'; END IF;
-  IF EXISTS(SELECT 1 FROM public.registrations WHERE tournament_id=event) THEN RAISE EXCEPTION 'Draft registrations leaked'; END IF;
+  denied:=false; BEGIN PERFORM 1 FROM public.registrations; EXCEPTION WHEN insufficient_privilege THEN denied:=true; END;
+  IF NOT denied THEN RAISE EXCEPTION 'Private registrations readable anonymously'; END IF;
+  IF EXISTS(SELECT 1 FROM public.public_registrations WHERE tournament_id=event) THEN RAISE EXCEPTION 'Draft registrations leaked'; END IF;
   RESET ROLE;
   PERFORM set_config('request.jwt.claim.sub',other::text,true);
   SET LOCAL ROLE authenticated;

@@ -6,11 +6,13 @@ Memberships/plans, promotions/referrals, disputes and application audit logging 
 
 Next.js app for 5v5 matchmaking and tournaments. The original homepage design is retained.
 
+See [review remediation and deployment prerequisites](docs/REVIEW_REMEDIATION.md) and [isolated staging](docs/STAGING.md) for the October security changes. Guest forms require real Turnstile keys in production; apply the privacy migration together with the matching app release.
+
 ## Setup
 
 Fill in `.env.local` using `.env.example`. Supabase public credentials and the server-only service role key are required. Set `NEXT_PUBLIC_SITE_URL` to the app's origin. Allow `<app-origin>/auth/callback` in Supabase Auth redirect URLs.
 
-For a new project, run `supabase/setup.sql` in the Supabase SQL Editor. It applies sixteen migrations in a transaction. For existing installations, apply only pending migrations in order. Install all pending migrations, including the optional-feature retirement migration, before deploying the current app. See `docs/COMMUNITY_SETUP.md` for the exact list and operator workflow. The provider migration retires historical booking data in a private schema; booking routes, forms, and APIs remain removed. Regenerate the new-project setup after adding migrations with `node scripts/build-database-setup.mjs`.
+For a new project, run `supabase/setup.sql` in the Supabase SQL Editor. It applies all versioned migrations in a transaction. For existing installations, apply only pending migrations in order. Install all pending migrations, including the optional-feature retirement migration, before deploying the current app. See `docs/COMMUNITY_SETUP.md` for the exact list and operator workflow. The provider migration retires historical booking data in a private schema; booking routes, forms, and APIs remain removed. Regenerate the new-project setup after adding migrations with `node scripts/build-database-setup.mjs`.
 
 Enable email/password authentication and configure email delivery/confirmation. Signup confirmation exchanges the authorization code for a real session.
 
@@ -42,7 +44,7 @@ See `docs/PROJECT_REVIEW.md` for the completed scope, fixes, verification result
 
 Admins can set a PKR entry fee per team and payment instructions when creating a tournament. The fee becomes fixed after the first registration. After registering and paying, teams use the WhatsApp button to send their payment screenshot to the existing zone number. An administrator checks the screenshot and marks payment verified before approving the team. The app does not process payments or automatically verify screenshots.
 
-Manage bracket on `/admin` generates seeded single or double elimination from approved, checked-in, paid and eligible teams, closes registration, and handles byes. Admins enter scores to advance winners and losers; the final result records the champion and completes the event. Double elimination includes a reset final when necessary. Earlier scores can be corrected until dependent games finish. Teams and payment eligibility become fixed once the bracket starts. Public brackets refresh while visible.
+Manage bracket on `/admin` generates seeded single or double elimination from approved, eligible teams with required payment verified, closes registration, and handles byes. Admins enter scores to advance winners and losers; the final result records the champion and completes the event. Double elimination includes a reset final when necessary. Earlier scores can be corrected until dependent games finish. Teams and payment eligibility become fixed once the bracket starts. Public brackets refresh while visible.
 
 Verified squad invitations remain available for team scrims. Tournament registration uses a separate open team application form: captain contact details, team name and five player names are required. FACEIT verification and sign-in are optional. Guest applications are managed from the browser that submitted them.
 
@@ -60,4 +62,4 @@ Posts disappear at the selected time. Supabase Cron removes new expired posts an
 
 Steam names are read from Steam's public profile, with an optional STEAM_WEB_API_KEY lookup. Existing Steam account names refresh when the account loads. Admin login redirects to /admin, and the homepage and navigation contain Manage tournaments links.
 
-FACEIT Connect uses the confidential authorization-code flow; provider-side PKCE is disabled because FACEIT's discovery document does not advertise it. App-to-Supabase PKCE remains enabled. A 401 from FACEIT's token endpoint means the configured OAuth client credentials must be corrected in .env.local, then node scripts/configure-faceit.mjs rerun. These are separate from the FACEIT Data API key.
+FACEIT Connect uses the confidential authorization-code flow. The provider configuration script requests PKCE; validate provider compatibility and identity linking in isolated staging before changing the hosted configuration. App-to-Supabase PKCE remains enabled. A 401 from FACEIT's token endpoint means the configured OAuth client credentials must be checked in .env.local. These are separate from the FACEIT Data API key.

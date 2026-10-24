@@ -7,10 +7,6 @@ async function load(file) {
 }
 const { buildBracket } = await load('src/lib/bracket-engine.ts');
 const { scheduleMatches, validateSchedule, matchTimeLabel } = await load('src/lib/bracket-schedule.ts');
-const { validBracketResetPassword } = await load('src/lib/bracket-reset-password.ts');
-assert.equal(validBracketResetPassword('correct 🔐 password', 'correct 🔐 password'), true);
-for (const value of ['', undefined, null, 'wrong', 'correct', 'x'.repeat(1025)]) assert.equal(validBracketResetPassword(value, 'correct 🔐 password'), false);
-assert.equal(validBracketResetPassword('anything', ''), false);
 const config = { start_date: '2026-11-16', days: [0, 1, 2, 3, 4, 5, 6] };
 assert.equal(validateSchedule(null), null);
 for (const value of [undefined, {}, { ...config, days: [] }, { ...config, days: [1, 1] }, { ...config, days: [7] }, { ...config, days: ['1'] }, { ...config, start_date: '2026-02-30' }]) assert.throws(() => validateSchedule(value));

@@ -1,7 +1,8 @@
+import { loadTestEnvironment } from '../scripts/lib/test-environment.mjs';
 // Read-only checks against the configured hosted project. No records or messages are created.
 import assert from 'node:assert/strict';
 import { createClient } from '@supabase/supabase-js';
-process.loadEnvFile('.env.local');
+loadTestEnvironment();
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
 const anon = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, options);
 const server = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, options);
@@ -13,7 +14,7 @@ for (const table of ['team_members', 'notifications_log']) {
   const { error } = await server.from(table).select('id').limit(1);
   assert.ifError(error); console.log('Server Data API available: ' + table);
 }
-const ranking = await anon.rpc('read_faceit_ranking', { page_number: 1, page_size: 25 });
+const ranking = await server.rpc('read_faceit_ranking', { page_number: 1, page_size: 25 });
 assert.ifError(ranking.error); assert.ok(Array.isArray(ranking.data.players));
 const analytics = await server.rpc('arena_analytics');
 assert.ifError(analytics.error); assert.ok(analytics.data && typeof analytics.data === 'object');

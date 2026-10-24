@@ -50,7 +50,7 @@ BEGIN
  IF (public.arena_analytics()->>'checked_in_teams')::integer<>2 THEN RAISE EXCEPTION 'Attendance analytics incorrect';END IF;
  INSERT INTO public.faceit_leaderboard(faceit_id,nickname,level,elo) VALUES(users[1]::text,'Ranked one',5,1500),(users[3]::text,'Banned fixture',5,2000),(gen_random_uuid()::text,'Unrelated cache',5,3000);
  UPDATE public.profiles SET role='banned' WHERE id=users[3];
- RESET ROLE;SET LOCAL ROLE anon;
+ RESET ROLE;SET LOCAL ROLE service_role;
  IF jsonb_array_length(public.read_faceit_ranking(1,25)->'players')<>1 THEN RAISE EXCEPTION 'Ranking exposed banned or unrelated cached profiles';END IF;
  RESET ROLE;
 END $$;

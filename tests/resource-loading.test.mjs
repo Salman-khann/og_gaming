@@ -8,7 +8,7 @@ const compiled = ts.transpileModule(readFileSync(new URL('../src/components/useR
 const slots = [], pendingEffects = [], timers = new Map(), intervals = new Map();
 const listeners = { window: new Map(), document: new Map() };
 const requests = [];
-let cursor = 0, nextTimer = 0;
+let cursor = 0, nextTimer = 0, now = 100000;
 const changed = (a, b) => !a || a.length !== b.length || a.some((value, i) => value !== b[i]);
 const hooks = {
   useState(initial) {
@@ -27,7 +27,7 @@ const events = name => ({ addEventListener: (key, fn) => listeners[name].set(key
 const document = { visibilityState: 'visible', ...events('document') };
 const exports = {};
 vm.runInNewContext(compiled, {
-  exports, AbortController, document, window: events('window'), require: () => hooks,
+  exports, Date: { now: () => now }, AbortController, document, window: events('window'), require: () => hooks,
   setTimeout: fn => { timers.set(++nextTimer, fn); return nextTimer; }, clearTimeout: id => timers.delete(id),
   setInterval: fn => { intervals.set(++nextTimer, fn); return nextTimer; }, clearInterval: id => intervals.delete(id),
   fetch: (url, options) => new Promise(resolve => requests.push({ url, options, resolve })),
@@ -73,6 +73,8 @@ const count = requests.length;
 document.visibilityState = 'hidden'; listeners.document.get('visibilitychange')();
 assert.equal(requests.length, count);
 document.visibilityState = 'visible'; listeners.document.get('visibilitychange')();
+assert.equal(requests.length, count, 'rapid focus/visibility events are deduplicated');
+now += 15000; listeners.document.get('visibilitychange')();
 assert.equal(requests.length, count + 1, 'mobile tab return refreshes the resource');
 const action = exports.sendAction('/action', {});
 requests.at(-1).resolve(new Response('Proxy unavailable', { status: 502 }));

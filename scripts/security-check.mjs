@@ -28,6 +28,7 @@ export function inspectEnvironment(env, production = false) {
     if (inspectText(value).length) problems.push(name + ': contains a privileged credential');
   }
   if (production) {
+    if (!env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || !env.TURNSTILE_SECRET_KEY) problems.push('TURNSTILE: configure the public site key and server-only secret before deployment.');
     if (!/^[a-f0-9]{64,}$/i.test(env.RATE_LIMIT_SECRET || '')) problems.push('RATE_LIMIT_SECRET: use at least 32 random bytes encoded as hex');
     if ((env.CRON_SECRET || '').length < 32 || placeholder(env.CRON_SECRET || '')) problems.push('CRON_SECRET: use at least 32 random characters');
     try { const url = new URL(env.NEXT_PUBLIC_SITE_URL); if (url.protocol !== 'https:' || url.username || url.password) throw new Error(); } catch { problems.push('NEXT_PUBLIC_SITE_URL: set the production HTTPS origin'); }
@@ -38,7 +39,8 @@ export function inspectEnvironment(env, production = false) {
 }
 
 export function forbiddenTrackedPath(path) {
-  return /(?:^|\/)\.env(?:$|\.)/.test(path) && path !== '.env.example'
+  return /(?:^|\/)\.env(?:$|\.)/.test(path) && !['.env.example','.env.test.example'].includes(path)
+    || /(?:^|\/)id_(?:rsa|ed25519|ecdsa|dsa)$/i.test(path)
     || /(?:^|\/)(?:backups|recovery-private)(?:\/|$)/i.test(path)
     || /(?:\.dump|\.backup|\.sql\.gz|\.pgpass|\.p12|\.pfx|\.pem|\.ogbackup)$/i.test(path);
 }
@@ -57,7 +59,7 @@ export function checkSecurity({ production = false } = {}) {
   const files = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: root, encoding: 'utf8' }).split('\0').filter(Boolean);
   const known = Object.entries(env).filter(([name]) => isSecret(name)).map(([, value]) => value).filter(Boolean);
   for (const path of new Set(files)) {
-    if (!/\.(?:[cm]?js|tsx?|json|ya?ml|md|sql|toml|txt|ps1|sh|css|html)$/.test(path) && path !== '.env.example') continue;
+    if (!/\.(?:[cm]?js|tsx?|json|ya?ml|md|sql|toml|txt|ps1|sh|css|html)$/.test(path) && !['.env.example','.env.test.example'].includes(path)) continue;
     if (!existsSync(resolve(root, path))) continue;
     const contents = readFileSync(resolve(root, path));
     if (contents.includes(0)) continue;

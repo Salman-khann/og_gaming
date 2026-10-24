@@ -84,8 +84,10 @@ export function CyberBackground() {
       const animate = document.visibilityState === 'visible';
       // Keep the requested ember drift on mobile, with gentler motion when preferred.
       const motionScale = motion.matches ? 0.35 : 1;
-      const step = animate && time !== undefined && lastTime !== null
-        ? Math.min((time - lastTime) / (1000 / 60), 2) * motionScale : 0;
+      const step =
+        animate && time !== undefined && lastTime !== null
+          ? Math.min((time - lastTime) / (1000 / 60), 2) * motionScale
+          : 0;
       lastTime = time ?? null;
       tick += step;
       ctx.clearRect(0, 0, width, height);
@@ -142,7 +144,8 @@ export function CyberBackground() {
           const dist = Math.sqrt(dx * dx + dy * dy);
 
           if (dist < 90) {
-            const alpha = (1 - dist / 90) * 0.12 * Math.min(particles[i].opacity, particles[j].opacity);
+            const alpha =
+              (1 - dist / 90) * 0.12 * Math.min(particles[i].opacity, particles[j].opacity);
             ctx.beginPath();
             ctx.strokeStyle = `rgba(255, 106, 18, ${alpha})`;
             ctx.lineWidth = 0.75;

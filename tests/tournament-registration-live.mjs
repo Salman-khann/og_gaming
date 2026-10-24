@@ -1,8 +1,9 @@
+import { loadTestEnvironment } from '../scripts/lib/test-environment.mjs';
 ﻿// Isolated live guest-entry check. Cleans up its event, entries, contacts and notices.
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createClient} from '@supabase/supabase-js';
-process.loadEnvFile('.env.local');
+loadTestEnvironment();
 const base=process.argv[2]||'http://localhost:3110';
 if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw new Error('Use a local server.');
 if(process.env.TELEGRAM_BOT_TOKEN||process.env.RESEND_API_KEY)throw new Error('Use SQL fixtures when real notification delivery is configured.');

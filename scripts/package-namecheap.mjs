@@ -1,7 +1,7 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, cpSync } from 'node:fs';
+import { createWriteStream, readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, cpSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+import { ZipArchive } from 'archiver';
 import { parseEnv } from 'node:util';
 import ts from 'typescript';
 import { checkSecurity, inspectText } from './security-check.mjs';
@@ -56,9 +56,16 @@ function verify(directory) {
   }
 }
 verify(stage);
-if (process.platform !== 'win32') throw new Error('The ZIP writer currently requires PowerShell on Windows. The staged folder is ready.');
-const result = spawnSync('powershell.exe', ['-NoProfile', '-File', join(root, 'scripts/zip-namecheap.ps1'), '-Source', stage, '-Destination', zip], { encoding: 'utf8', windowsHide: true });
-if (result.status !== 0) throw new Error('ZIP creation failed. The staged folder is preserved.');
+const output = createWriteStream(zip);
+const archive = new ZipArchive({ zlib: { level: 9 } });
+const finished = new Promise((resolve, reject) => {
+  output.on('close', resolve); output.on('error', reject);
+  archive.on('error', reject); archive.on('warning', reject);
+});
+archive.pipe(output);
+archive.directory(stage, false);
+await archive.finalize();
+await finished;
 writeFileSync(join(root, '.deployment/latest.json'), JSON.stringify({ stage, zip, files: count }, null, 2));
 console.log('Upload ZIP:', zip);
 console.log('Verified files:', count, '(no local environment files, private credentials, node_modules or build cache)');
