@@ -12,7 +12,7 @@ export async function testPairingManagement(db, buildBracket) {
       for (let index = 0; index < 5; index++) {
         const user = randomUUID(), team = randomUUID(); ids.push(team);
         await db.query('INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES($1,$2,$3)', [user, user + '@test.invalid', {}]);
-        await db.query("INSERT INTO public.registrations(id,tournament_id,captain_id,team_name,roster_details,status,checked_in) VALUES($1,$2,$3,$4,'[{},{},{},{},{}]','approved',true)", [team, event, user, 'Pairing team ' + index]);
+        await db.query("INSERT INTO public.registrations(id,tournament_id,captain_id,team_name,roster_details,status,checked_in) VALUES($1,$2,$3,$4,'[{},{},{},{},{}]','approved',false)", [team, event, user, 'Pairing team ' + index]);
       }
       await db.exec('SET LOCAL ROLE service_role');
       await db.query('SELECT public.create_competition_bracket($1,$2)', [event, JSON.stringify(buildBracket(ids, type))]);
@@ -37,9 +37,9 @@ export async function testPairingManagement(db, buildBracket) {
       await reject([{ team_a: randomUUID(), team_b: ids[1] }, ...pairs.slice(1)], /exactly once/);
       await reject(pairs.slice(1), /number of opening/);
       await reject([{ team_a: null, team_b: null }, ...pairs.slice(1)], /at least one team/);
-      await db.query('UPDATE public.registrations SET no_show=true WHERE id=$1', [ids[4]]);
+      await db.query("UPDATE public.profiles SET role='banned' WHERE id=(SELECT captain_id FROM public.registrations WHERE id=$1)", [ids[4]]);
       await reject(pairs, /no longer eligible/);
-      await db.query('UPDATE public.registrations SET no_show=false WHERE id=$1', [ids[4]]);
+      await db.query("UPDATE public.profiles SET role='player' WHERE id=(SELECT captain_id FROM public.registrations WHERE id=$1)", [ids[4]]);
       const ready = (await db.query("SELECT id FROM public.tournament_matches WHERE tournament_id=$1 AND status='pending' AND team_a IS NOT NULL AND team_b IS NOT NULL ORDER BY round,position LIMIT 1", [event])).rows[0];
       await db.query('SELECT public.record_competition_result($1,13,7)', [ready.id]);
       await reject(pairs, /scores have already been recorded/);

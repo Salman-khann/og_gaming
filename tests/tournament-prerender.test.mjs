@@ -28,6 +28,6 @@ try {
  assert.match(guest,/Checking registration time/);
  assert.doesNotMatch(guest,/Registration closed or full/);
  const member=renderToString(createElement(TournamentsView,{tournaments:[tournament],registrations:[{id:'entry',tournament_id:'fixture',captain_id:'captain',status:'approved',checked_in:false,amount_due:0}],currentProfile:{id:'captain'},onRegistrationCreated:()=>{}}));
- assert.match(member,/Checking check-in time/);assert.match(member,/<button[^>]*disabled=""[^>]*>Checking check-in time/);
- console.log('Tournament SSR passes without Date.now; registration/check-in remain guarded before hydration.');
+ assert.match(member,/Your team:.*?approved/);assert.doesNotMatch(member,/check.in/i);
+ console.log('Tournament SSR passes without Date.now; registration stays guarded before hydration and approved teams need no check-in.');
 } finally { Date.now=originalNow; }

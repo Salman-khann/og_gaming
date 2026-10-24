@@ -2,7 +2,7 @@ import { connection } from 'next/server';
 import { readArena } from '@/lib/data-service';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { apiError, ApiError, requireProfile, sameOrigin, integer, money, textField, jsonObject, uuidField } from '@/lib/api';
-import {applicationInput,ownsApplication} from '@/lib/team-applications';
+import {applicationInput} from '@/lib/team-applications';
 import {createClient} from '@/lib/supabase/server';
 import {cookies} from 'next/headers';
 import {newDeletionCredential} from '@/lib/match-ownership';
@@ -21,10 +21,7 @@ function tournamentFields(body: Record<string, unknown>) {
   const entryFee = money(body.entry_fee === undefined ? 0 : body.entry_fee);
   const bracketType = body.bracket_type || 'single';
   if (!['single','double'].includes(String(bracketType))) throw new ApiError('Invalid bracket type.');
-  const checkinOpen = body.checkin_open ? new Date(String(body.checkin_open)).getTime() : start - 3600000;
-  const checkinClose = body.checkin_close ? new Date(String(body.checkin_close)).getTime() : start;
-  if (!Number.isFinite(checkinOpen) || !Number.isFinite(checkinClose) || checkinOpen >= checkinClose || checkinClose > start) throw new ApiError('Choose a check-in window that ends before the start.');
-  return { title, slug, bracket_type:bracketType,checkin_open:new Date(checkinOpen).toISOString(),checkin_close:new Date(checkinClose).toISOString(), entry_fee: entryFee, payment_instructions: String(body.payment_instructions || '').slice(0, 2000), description: String(body.description || '').slice(0, 4000), game: textField(body.game, 'game', 80), format: textField(body.format, 'format', 100), min_level: min, max_level: max, max_teams: integer(body.max_teams, 2, 128), start_date: new Date(start).toISOString(), registration_deadline: new Date(deadline).toISOString(), status: body.status, prize_pool: String(body.prize_pool || '').slice(0, 200), rules: String(body.rules || '').slice(0, 8000) };
+  return { title, slug, bracket_type:bracketType,entry_fee: entryFee, payment_instructions: String(body.payment_instructions || '').slice(0, 2000), description: String(body.description || '').slice(0, 4000), game: textField(body.game, 'game', 80), format: textField(body.format, 'format', 100), min_level: min, max_level: max, max_teams: integer(body.max_teams, 2, 128), start_date: new Date(start).toISOString(), registration_deadline: new Date(deadline).toISOString(), status: body.status, prize_pool: String(body.prize_pool || '').slice(0, 200), rules: String(body.rules || '').slice(0, 8000) };
 }
 export async function GET(request:Request) {
   await connection();
@@ -35,13 +32,7 @@ export async function POST(request: Request) {
   try {
     sameOrigin(request);
     const body = await jsonObject(request);
-    if(body.action==='checkin') {
-      const session=await createClient();const {data:{user}}=await session.auth.getUser();if(user)await requireProfile();
-      await rateLimit(request,'team-checkin',30,60,user?.id);
-      const id=uuidField(body.registration_id,'registration');if(!await ownsApplication(id,user?.id))throw new ApiError('Only the team captain can check in.',403);
-      const {error}=await createAdminClient().rpc('checkin_team_application',{entry_id:id});if(error)throw new ApiError(error.message,409);
-      return Response.json({success:true});
-    }
+    if (body.action === 'checkin') throw new ApiError('Tournament check-in has been removed.', 410);
     if (body.action === 'create') {
       const {db}=await requireProfile(true);
       const { data: tournament, error } = await db.from('tournaments').insert(tournamentFields(body)).select().single();
@@ -75,14 +66,10 @@ export async function PATCH(request: Request) {
       if (error) throw new ApiError('Tournament could not be updated. Check its slug and team capacity.', 409);
     } else {
       const id = uuidField(body.registration_id, 'registration');
-      if (body.action === 'toggle_checkin') {
-        const { error } = await db.rpc('toggle_arena_checkin', { registration_id: id });
-        if (error) throw new ApiError(error.message, 409);
-      } else {
-        if (!['approved', 'rejected'].includes(String(body.status))) throw new ApiError('Invalid registration status.');
-        const { error } = await db.rpc('review_arena_registration', { registration_id: id, next_status: body.status });
-        if (error) throw new ApiError(error.message, 409);
-      }
+      if (body.action !== undefined) throw new ApiError('Invalid registration action.');
+      if (!['approved', 'rejected'].includes(String(body.status))) throw new ApiError('Invalid registration status.');
+      const { error } = await db.rpc('review_arena_registration', { registration_id: id, next_status: body.status });
+      if (error) throw new ApiError(error.message, 409);
     }
     dispatchAfterResponse();
     return Response.json({ success: true });

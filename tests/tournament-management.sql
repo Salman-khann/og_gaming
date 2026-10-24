@@ -25,7 +25,6 @@ BEGIN
     RESET ROLE;
     SET LOCAL ROLE authenticated;
     PERFORM public.review_arena_registration(registration,'approved');
-    PERFORM public.toggle_arena_checkin(registration);
     RESET ROLE;
   END LOOP;
   denied:=false;

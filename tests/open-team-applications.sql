@@ -14,11 +14,9 @@ BEGIN
  IF NOT denied THEN RAISE EXCEPTION 'Duplicate captain contact was accepted';END IF;
  PERFORM public.set_registration_payment((entry->>'id')::uuid,'verified');
  UPDATE public.registrations SET status='approved' WHERE id=(entry->>'id')::uuid;
- PERFORM public.checkin_team_application((entry->>'id')::uuid);
- IF NOT EXISTS(SELECT 1 FROM public.registrations WHERE id=(entry->>'id')::uuid AND checked_in) THEN RAISE EXCEPTION 'Guest check-in failed';END IF;
+ IF EXISTS(SELECT 1 FROM public.registrations WHERE id=(entry->>'id')::uuid AND checked_in) THEN RAISE EXCEPTION 'Team unexpectedly required check-in';END IF;
  PERFORM public.set_registration_payment((signed_entry->>'id')::uuid,'verified');
  UPDATE public.registrations SET status='approved' WHERE id=(signed_entry->>'id')::uuid;
- PERFORM public.checkin_team_application((signed_entry->>'id')::uuid);
  PERFORM public.create_competition_bracket(event,jsonb_build_array(jsonb_build_object('key','W1-1','bracket','winners','round',1,'position',1,'team_a',entry->>'id','team_b',signed_entry->>'id','outcome_a','winner','outcome_b','winner')));
  SELECT id INTO game FROM public.tournament_matches WHERE tournament_id=event;
  PERFORM public.record_competition_result(game,13,7);

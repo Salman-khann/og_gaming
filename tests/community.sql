@@ -30,7 +30,8 @@ BEGIN
  RESET ROLE;PERFORM set_config('request.jwt.claim.sub',admin_id::text,true);SET LOCAL ROLE authenticated;PERFORM public.review_arena_registration((entry->>'id')::uuid,'approved');RESET ROLE;SET LOCAL ROLE service_role;
  denied:=false;BEGIN PERFORM public.community_action(outsider,'checkin',jsonb_build_object('registration_id',entry->>'id'));EXCEPTION WHEN raise_exception THEN denied:=true;END;
  IF NOT denied THEN RAISE EXCEPTION 'Outsider checked in team';END IF;
- PERFORM public.community_action(captain,'checkin',jsonb_build_object('registration_id',entry->>'id'));
+ denied:=false;BEGIN PERFORM public.community_action(captain,'checkin',jsonb_build_object('registration_id',entry->>'id'));EXCEPTION WHEN raise_exception THEN denied:=true;END;
+ IF NOT denied THEN RAISE EXCEPTION 'Retired check-in action remains active';END IF;
  denied:=false;BEGIN PERFORM public.community_action(admin_id,'set_role',jsonb_build_object('user_id',admin_id,'role','player','reason','Self demotion'));EXCEPTION WHEN raise_exception THEN denied:=true;END;
  IF NOT denied THEN RAISE EXCEPTION 'Last admin self-demoted';END IF;
  PERFORM public.community_action(admin_id,'set_role',jsonb_build_object('user_id',outsider,'role','banned','reason','Fixture'));

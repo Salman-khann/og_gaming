@@ -53,8 +53,6 @@ export type TournamentStatus = 'draft' | 'upcoming' | 'ongoing' | 'completed' | 
 
 export interface Tournament {
   bracket_type: 'single' | 'double';
-  checkin_open: string | null;
-  checkin_close: string | null;
   id: string;
   title: string;
   slug: string;
@@ -120,4 +118,4 @@ export interface NotificationLog {
   sent_at?: string | null;
 }
 
-export interface TournamentMatch { id: string; tournament_id: string; bracket: 'winners' | 'losers' | 'final' | 'reset'; round: number; position: number; team_a: string | null; team_b: string | null; winner_id: string | null; score_a: number | null; score_b: number | null; status: 'pending' | 'completed' | 'bye'; node_key?: string | null; source_a?: string | null; source_b?: string | null; outcome_a?: 'winner' | 'loser'; outcome_b?: 'winner' | 'loser' }
+export interface TournamentMatch { id: string; tournament_id: string; bracket: 'winners' | 'losers' | 'final' | 'reset'; round: number; position: number; team_a: string | null; team_b: string | null; winner_id: string | null; score_a: number | null; score_b: number | null; status: 'pending' | 'completed' | 'bye'; node_key?: string | null; source_a?: string | null; source_b?: string | null; outcome_a?: 'winner' | 'loser'; outcome_b?: 'winner' | 'loser'; scheduled_at?: string | null }

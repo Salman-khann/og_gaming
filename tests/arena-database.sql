@@ -43,8 +43,7 @@ BEGIN
   PERFORM set_config('request.jwt.claim.sub', captain::text, true);
   SET LOCAL ROLE authenticated;
   PERFORM public.review_arena_registration(registration_id, 'approved');
-  PERFORM public.toggle_arena_checkin(registration_id);
-  IF NOT EXISTS (SELECT 1 FROM public.registrations WHERE id = registration_id AND status = 'approved' AND checked_in) THEN RAISE EXCEPTION 'Admin approval/check-in failed'; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.registrations WHERE id = registration_id AND status = 'approved') THEN RAISE EXCEPTION 'Admin approval failed'; END IF;
   PERFORM public.review_arena_registration(registration_id, 'rejected');
   IF EXISTS (SELECT 1 FROM public.registrations WHERE id = registration_id AND checked_in) THEN RAISE EXCEPTION 'Rejected team retained check-in'; END IF;
   RESET ROLE;

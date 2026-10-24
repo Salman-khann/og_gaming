@@ -1,8 +1,8 @@
 import type { TournamentMatch } from '@/types';
 
-export const BRACKET_CARD_WIDTH = 280;
-export const BRACKET_CARD_HEIGHT = 104;
-const PITCH = 144, GAP = 88, HEADER = 52, PORT = 66;
+export const BRACKET_CARD_WIDTH = 248;
+export const BRACKET_CARD_HEIGHT = 100;
+const PITCH = 128, GAP = 64, HEADER = 46, PORT = 52;
 export type BracketPlacement = { match: TournamentMatch; x: number; y: number };
 
 export function layoutBracket(matches: TournamentMatch[], cardHeight = BRACKET_CARD_HEIGHT) {

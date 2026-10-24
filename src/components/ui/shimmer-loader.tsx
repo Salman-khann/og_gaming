@@ -37,12 +37,14 @@ function computeShimmerColors(totalWidth: number, shimmerPos: number, pulse: num
 
 type ShimmerLoaderProps = {
   labels?: string[]; icons?: string[]; duration?: number; tokenTarget?: number; showPercent?: boolean;
-  fontSize?: number; paddingY?: number; cellPadding?: number; textClassName?: string; onComplete?: () => void;
+  fontSize?: number; paddingY?: number; cellPadding?: number; textClassName?: string; onComplete?: () => void; onProgress?: (progress: number) => void;
 };
-export function ShimmerLoader({labels=defaultLabels,icons=defaultIcons,duration=3000,tokenTarget,showPercent=true,fontSize=14,paddingY=4,cellPadding=2,textClassName='',onComplete}:ShimmerLoaderProps) {
+export function ShimmerLoader({labels=defaultLabels,icons=defaultIcons,duration=3000,tokenTarget,showPercent=true,fontSize=14,paddingY=4,cellPadding=2,textClassName='',onComplete,onProgress}:ShimmerLoaderProps) {
   const cells=useRef<(HTMLSpanElement|null)[]>([]), icon=useRef<HTMLSpanElement>(null), tokens=useRef<HTMLSpanElement>(null);
   const complete=useRef(onComplete);
+  const progressCallback=useRef(onProgress);
   useEffect(()=>{complete.current=onComplete;},[onComplete]);
+  useEffect(()=>{progressCallback.current=onProgress;},[onProgress]);
   const safeLabels=labels.length?labels:defaultLabels, safeIcons=icons.length?icons:defaultIcons;
   const padding=Math.max(0,Math.floor(cellPadding));
   const longest=Math.max(...safeLabels.map(label=>(' '+label+' ').length+(showPercent?5:0)));
@@ -64,7 +66,8 @@ export function ShimmerLoader({labels=defaultLabels,icons=defaultIcons,duration=
       const raw=' '+label+(showPercent?' '+Math.round(progress*100)+'%':'')+' ';
       const text=(' '.repeat(padding)+raw.padEnd(longest)+' '.repeat(padding)).split('');
       const pulse=reduced?0:Math.sin(frame*.18);
-      const colors=computeShimmerColors(barWidth,reduced?barWidth/2:((frame*1.2)%cycle)-radius,pulse);
+      const colors=computeShimmerColors(barWidth,reduced?barWidth/2:progress*cycle-radius,pulse);
+      progressCallback.current?.(progress);
       for(let i=0;i<barWidth;i++){
         const cell=cells.current[i];if(!cell)continue;
         cell.style.backgroundColor=`rgb(${colors[i].join(',')})`;

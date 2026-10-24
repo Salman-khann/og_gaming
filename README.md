@@ -28,7 +28,7 @@ Sign up, then promote the chosen user's UUID in the SQL Editor:
 update public.profiles set role = 'admin' where id = '<auth-user-uuid>';
 ```
 
-Administrators use `/admin` to create/edit tournaments, publish events, review registrations, and manage check-ins. Draft tournaments stay hidden from players. Role assignments are protected against client updates. Match joins and tournament approvals lock database rows to prevent concurrent overfilling.
+Administrators use `/admin` to create/edit tournaments, publish events, review registrations, and manage automatic match schedules. Approved teams with any required payment verified enter brackets without check-in. See [Tournament schedules and password-protected reset](docs/TOURNAMENT_SCHEDULES.md) for the two daily PKT slots and one-time database/server setup. Draft tournaments stay hidden from players. Role assignments are protected against client updates. Match joins and tournament approvals lock database rows to prevent concurrent overfilling.
 
 ## Run and verify
 

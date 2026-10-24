@@ -18,12 +18,12 @@ try{
  const own=await (await fetch(base+'/api/tournaments',{headers:{Cookie:ownership}})).json();assert.ok(own.registrations.some(row=>row.id===entry&&row.can_manage));
  const publicRows=await (await fetch(base+'/api/tournaments')).json();assert.ok(!publicRows.registrations.some(row=>row.id===entry),'Pending guest entry must remain private');
  assert.ok((await anon.from('registration_contacts').select('phone').limit(1)).error);
- const wrong=await fetch(base+'/api/tournaments',{method:'POST',headers,body:JSON.stringify({action:'checkin',registration_id:entry})});assert.equal(wrong.status,403);
+ const wrong=await fetch(base+'/api/tournaments',{method:'POST',headers,body:JSON.stringify({action:'checkin',registration_id:entry})});assert.equal(wrong.status,410);
  const payment=await db.rpc('set_registration_payment',{registration_id:entry,next_payment:'verified'});assert.ifError(payment.error);
  const approved=await db.from('registrations').update({status:'approved'}).eq('id',entry);assert.ifError(approved.error);
- const checkin=await fetch(base+'/api/tournaments',{method:'POST',headers:{...headers,Cookie:ownership},body:JSON.stringify({action:'checkin',registration_id:entry})});assert.equal(checkin.status,200,await checkin.text());
+ const checkin=await fetch(base+'/api/tournaments',{method:'POST',headers:{...headers,Cookie:ownership},body:JSON.stringify({action:'checkin',registration_id:entry})});assert.equal(checkin.status,410,await checkin.text());
  const detail=await fetch(base+'/tournaments/'+created.data.slug,{headers:{Cookie:ownership}});assert.equal(detail.status,200);assert.match(await detail.text(),/Temporary open team application check/);
- console.log('Live guest registration, private contacts, ownership, manual fees, guest check-in and event URL passed without FACEIT.');
+ console.log('Live guest registration, private contacts, ownership, manual fees, retired check-in and event URL passed without FACEIT.');
 }finally{
  if(entry){const cleanup=await db.from('notifications_log').delete().eq('payload->>id',entry);assert.ifError(cleanup.error);}
  if(event){const cleanup=await db.from('tournaments').delete().eq('id',event);assert.ifError(cleanup.error);}

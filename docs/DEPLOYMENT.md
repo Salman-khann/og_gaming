@@ -16,7 +16,7 @@ Configure `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE
 
 `FACEIT_API_KEY` supports FACEIT login/profile data, verified team scrims and rankings. Open tournament applications do not require FACEIT verification. The configured FACEIT client is registered with Supabase; its provider callback stays at the Supabase Auth callback URL.
 
-For background processing, set a generated `CRON_SECRET` and schedule an authenticated request to `/api/worker` at an interval supported by the selected hosting plan. Database expiry/no-show cleanup already runs separately in Supabase Cron. Optional email/Telegram alerts need the channel credentials listed in `.env.example`.
+For background processing, set a generated `CRON_SECRET` and schedule an authenticated request to `/api/worker` at an interval supported by the selected hosting plan. Database expiry cleanup runs separately in Supabase Cron; tournament no-show rejection is retired. Optional email/Telegram alerts need the channel credentials listed in `.env.example`. Apply the latest [tournament schedule/reset migrations](TOURNAMENT_SCHEDULES.md) and configure `BRACKET_RESET_PASSWORD` to enable admin bracket resets.
 
 ## Login URLs
 

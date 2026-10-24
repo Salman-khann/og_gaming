@@ -12,7 +12,7 @@ export async function testBrackets(db,buildBracket){
    for(let i=0;i<size;i++){
     const captain=randomUUID(),entry=randomUUID();entrants.push(entry);
     await db.query('INSERT INTO auth.users(id,email,raw_user_meta_data) VALUES($1,$2,$3)',[captain,captain+'@test.invalid',{}]);
-    await db.query("INSERT INTO public.registrations(id,tournament_id,captain_id,team_name,roster_details,status,checked_in) VALUES($1,$2,$3,$4,'[{},{},{},{},{}]','approved',true)",[entry,event,captain,'Team '+i]);
+    await db.query("INSERT INTO public.registrations(id,tournament_id,captain_id,team_name,roster_details,status,checked_in) VALUES($1,$2,$3,$4,'[{},{},{},{},{}]','approved',false)",[entry,event,captain,'Team '+i]);
    }
    await db.exec('SET LOCAL ROLE service_role');
    await db.query('SELECT public.create_competition_bracket($1,$2)',[event,JSON.stringify(buildBracket(entrants,kind))]);

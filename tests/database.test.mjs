@@ -6,6 +6,7 @@ import ts from 'typescript';
 import {testScorecards} from './scorecards-database.mjs';
 import {testBrackets} from './bracket-database.mjs';
 import {testPairingManagement} from './bracket-pairings-database.mjs';
+import {testScheduleSettings} from './bracket-schedule-database.mjs';
 const db = new PGlite();
 try {
   await db.exec(`
@@ -33,6 +34,7 @@ try {
   assert.equal((await db.query('SELECT count(*)::integer AS count FROM public.profiles')).rows[0].count, 0, 'Fixtures must roll back');
   const engine=ts.transpileModule(readFileSync(new URL('../src/lib/bracket-engine.ts',import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2022}}).outputText;
   const {buildBracket}=await import('data:text/javascript;base64,'+Buffer.from(engine).toString('base64'));
+  await testScheduleSettings(db,buildBracket);
   await testBrackets(db,buildBracket);
   await testPairingManagement(db,buildBracket);
   await testScorecards(db,buildBracket);

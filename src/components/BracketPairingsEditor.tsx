@@ -15,7 +15,7 @@ export function BracketPairingsEditor({ matches, teams, busy, onSave, onClose }:
   const [pairings, setPairings] = useState<OpeningPairing[]>(() => opening.length ? opening : entrants.length >= 2 ? automaticPairings(entrantIds) : []);
   let problem = '';
   try {
-    if (entrants.length !== entrantIds.length) throw new Error('An entrant is no longer eligible. Restore their approval, check-in and payment before changing matchups.');
+    if (entrants.length !== entrantIds.length) throw new Error('An entrant is no longer eligible. Restore their approval and payment before changing matchups.');
     validatePairings(pairings, entrantIds, opening.length || undefined);
   } catch (error) { problem = error instanceof Error ? error.message : 'Check your matchups.'; }
   function choose(index: number, side: 'team_a' | 'team_b', selected: string) {

@@ -39,7 +39,7 @@ BEGIN
  INSERT INTO public.registrations(id,tournament_id,captain_id,team_name,roster_details,status,checked_in) VALUES(absent_team,event,users[2],'No-show','[{},{},{},{},{}]','approved',false),(entry,event,users[1],'Checked','[{},{},{},{},{}]','approved',true),(other_entry,event,users[6],'Opponent','[{},{},{},{},{}]','approved',true);
  UPDATE public.tournaments SET start_date=now()-interval '1 minute',registration_deadline=now()-interval '1 hour' WHERE id=event;
  PERFORM public.release_tournament_no_shows();
- IF NOT EXISTS(SELECT 1 FROM public.registrations WHERE id=absent_team AND status='rejected' AND no_show) OR NOT EXISTS(SELECT 1 FROM public.registrations WHERE id=entry AND status='approved') THEN RAISE EXCEPTION 'No-show release altered checked-in team';END IF;
+ IF NOT EXISTS(SELECT 1 FROM public.registrations WHERE id=absent_team AND status='approved' AND NOT no_show) OR NOT EXISTS(SELECT 1 FROM public.registrations WHERE id=entry AND status='approved') THEN RAISE EXCEPTION 'Retired no-show job rejected an approved team';END IF;
  INSERT INTO public.tournament_matches(id,tournament_id,round,position,team_a,team_b) VALUES(game,event,1,1,entry,other_entry);
  UPDATE public.tournaments SET status='ongoing' WHERE id=event;
  PERFORM public.record_competition_result(game,13,7);

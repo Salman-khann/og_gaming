@@ -9,7 +9,7 @@ export function AdminAnalytics({report}:{report:AdminReport}) {
  const x=(index:number)=>pad+index*(width-pad*2)/Math.max(1,report.series.length-1);
  const y=(value:number)=>height-pad-value/max*(height-pad*2);
  const points=report.series.map((point,index)=>`${x(index)},${y(point.entries)}`).join(' ');
- const metrics=[['Team entries',report.registrations,'Submitted in this period'],['Awaiting review',report.pending,'Entries with pending approval'],['Checked in',report.checked_in,'Entries ready to compete'],['Verified entry fees','PKR '+number(report.verified_fees),'Verified fees for entries in this period']];
+ const metrics=[['Team entries',report.registrations,'Submitted in this period'],['Awaiting review',report.pending,'Entries with pending approval'],['Approved teams',report.approved,'Entries approved to compete'],['Verified entry fees','PKR '+number(report.verified_fees),'Verified fees for entries in this period']];
  const statuses=[['Approved',report.approved,'#74dfb1'],['Pending',report.pending,'#ff6a12'],['Rejected',report.rejected,'#f17a88']] as const;
  return <div className={styles.analytics}>
   <div className={styles.metrics}>{metrics.map(([label,value,note])=><article className={styles.metric} key={label}><span>{label}</span><strong>{typeof value==='number'?number(value):value}</strong><small>{note}</small></article>)}</div>
