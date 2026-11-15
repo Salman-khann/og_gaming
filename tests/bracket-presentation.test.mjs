@@ -22,6 +22,7 @@ const { TournamentBracket } = load('src/components/TournamentBracket.tsx', {
   }),
   './BracketScheduleEditor':{BracketScheduleEditor:()=>null},
   './BracketResetDialog':{BracketResetDialog:()=>null},
+  './BracketTeamSwapDialog':{BracketTeamSwapDialog:()=>null},
   '@/lib/bracket-layout':load('src/lib/bracket-layout.ts'),
   '@/lib/bracket-series':load('src/lib/bracket-series.ts'),
   './useResource':{useResource:()=>({data:{teams,matches},reload:()=>{},loading:false})},
@@ -30,7 +31,7 @@ const { TournamentBracket } = load('src/components/TournamentBracket.tsx', {
   './TournamentBracket.module.css':{__esModule:true,default:new Proxy({}, {get:(_,key)=>String(key)})},
 });
 const html = renderToStaticMarkup(createElement(TournamentBracket,{tournamentId:'preview'}));
-for (const label of ['Winners bracket','Losers bracket','Grand finals','Reset final','Team status']) assert.ok(html.includes(label),label);
+for (const label of ['Winners bracket','Losers bracket','Grand finals',...(matches.some(m => m.bracket === 'reset') ? ['Reset final'] : []),'Team status']) assert.ok(html.includes(label),label);
 assert.equal((html.match(/<article /g)||[]).length,matches.length,'All lanes visible from the start');
 assert.ok(!html.includes('Edit result for'),'Spectators cannot score games');
 const admin = renderToStaticMarkup(createElement(TournamentBracket,{tournamentId:'preview',admin:true}));

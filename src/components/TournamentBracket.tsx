@@ -157,9 +157,12 @@ export function TournamentBracket({
   const played = matches.filter((m) => m.status === 'completed').length;
   const champion = bracketChampion(matches);
   const next = ready[0];
+  const hasResetMatch = matches.some((match) => match.bracket === 'reset');
   const grandFinal = matches.find((match) => match.bracket === 'final');
   const resetRequired =
-    grandFinal?.status === 'completed' && grandFinal.winner_id === grandFinal.team_b;
+    hasResetMatch &&
+    grandFinal?.status === 'completed' &&
+    grandFinal.winner_id === grandFinal.team_b;
   const totalSeries = Math.max(
     1,
     double ? entrants.length * 2 - 2 + (resetRequired ? 1 : 0) : entrants.length - 1,

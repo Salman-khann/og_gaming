@@ -100,8 +100,7 @@ export function buildBracket(teams: string[], type: 'single' | 'double'): Bracke
   }
   if (type === 'single') return nodes;
   reduceLower(1);
-  const final = match('final', 1, 1, upper[0], lower[0]);
-  match('reset', 1, 1, winner(final), loser(final));
+  match('final', 1, 1, upper[0], lower[0]);
   return nodes;
 }
 

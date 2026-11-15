@@ -82,7 +82,7 @@ export function BracketMatchCard({
           {m.bracket === 'reset'
             ? 'GF2'
             : m.bracket === 'final'
-              ? 'GF1'
+              ? 'GF'
               : `${m.bracket === 'losers' ? 'L' : 'W'}${m.round}-${m.position}`}
         </span>
         <span className={m.status === 'completed' ? styles.completeStatus : undefined}>
