@@ -1,0 +1,10 @@
+8pm-11:30pm
+
+11:30- 3 am
+
+set the schedule for each bracket where admin can change the timing of the match and it will highlight at the bracket
+
+
+when winner round 2 starts the looser round 1 should start simultaneously 
+
+

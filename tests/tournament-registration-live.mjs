@@ -1,8 +1,9 @@
+import { loadTestEnvironment } from '../scripts/lib/test-environment.mjs';
 ﻿// Isolated live guest-entry check. Cleans up its event, entries, contacts and notices.
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
 import {createClient} from '@supabase/supabase-js';
-process.loadEnvFile('.env.local');
+loadTestEnvironment();
 const base=process.argv[2]||'http://localhost:3110';
 if(!['localhost','127.0.0.1'].includes(new URL(base).hostname))throw new Error('Use a local server.');
 if(process.env.TELEGRAM_BOT_TOKEN||process.env.RESEND_API_KEY)throw new Error('Use SQL fixtures when real notification delivery is configured.');
@@ -14,7 +15,7 @@ try{
  const body={tournament_id:event,team_name:'Temporary guest squad',captain_name:'Temporary captain',email:'captain@test.invalid',phone:'+923000000099',city:'Karachi',accepted_rules:true,players:Array.from({length:5},(_,i)=>({nickname:'Fixture player '+i,game_id:''}))};
  const headers={'Content-Type':'application/json',Origin:base};
  const response=await fetch(base+'/api/tournaments',{method:'POST',headers,body:JSON.stringify(body)});const data=await response.json();assert.equal(response.status,201,data.error);entry=data.registration.id;
- const cookie=response.headers.getSetCookie().find(value=>value.startsWith('og_entry_'));assert.ok(cookie);const ownership=cookie.split(';')[0];
+ const cookie=response.headers.getSetCookie().find(value=>value.startsWith('og_entries='));assert.ok(cookie);const ownership=cookie.split(';')[0];
  const own=await (await fetch(base+'/api/tournaments',{headers:{Cookie:ownership}})).json();assert.ok(own.registrations.some(row=>row.id===entry&&row.can_manage));
  const publicRows=await (await fetch(base+'/api/tournaments')).json();assert.ok(!publicRows.registrations.some(row=>row.id===entry),'Pending guest entry must remain private');
  assert.ok((await anon.from('registration_contacts').select('phone').limit(1)).error);

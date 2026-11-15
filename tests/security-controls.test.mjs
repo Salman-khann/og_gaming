@@ -45,7 +45,7 @@ await assert.rejects(rateLimit(request('192.0.2.1'), 'guest', 1, 300), error => 
 await rateLimit(request('192.0.2.2'), 'guest', 1, 300);
 await rateLimit(request('192.0.2.1'), 'account', 1, 60, 'player-1');
 await assert.rejects(rateLimit(request('192.0.2.2'), 'account', 1, 60, 'player-1'), error => error.status === 429);
-for (let i = 0; i < 20; i++) await rateLimit(request('192.0.2.1'), 'multi-account', 1, 60, 'account-' + i);
+for (let i = 0; i < 100; i++) await rateLimit(request('192.0.2.1'), 'multi-account', 1, 60, 'account-' + i);
 await assert.rejects(rateLimit(request('192.0.2.1'), 'multi-account', 1, 60, 'new-account'), error => error.status === 429);
 await rateLimitSubject('phone', '+923001234567', 1, 3600);
 await assert.rejects(rateLimitSubject('phone', '+923001234567', 1, 3600), error => error.status === 429);
@@ -63,6 +63,8 @@ const token = ['eyJhbGciOiJIUzI1NiJ9', Buffer.from(JSON.stringify({ role: 'servi
 assert.ok(inspectText(token).includes('Supabase service-role JWT'));
 assert.ok(inspectText('sb_' + 'secret_' + 'x'.repeat(40)).includes('Supabase secret key'));
 assert.ok(inspectText('const privateValue = ' + 'known-sensitive-value', ['known-sensitive-value']).length);
+for (const path of ['id_rsa', '.ssh/id_ed25519', 'deploy/id_ecdsa']) assert.equal(forbiddenTrackedPath(path), true);
+assert.equal(forbiddenTrackedPath('deploy/id_ed25519.pub'), false);
 assert.deepEqual(inspectText('process.env.SUPABASE_SERVICE_ROLE_KEY'), []);
 assert.ok(inspectEnvironment({ NEXT_PUBLIC_SERVICE_ROLE_KEY: 'x'.repeat(40) }).length);
 assert.ok(inspectEnvironment({ NEXT_PUBLIC_SUPABASE_ANON_KEY: token }).length);

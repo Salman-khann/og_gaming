@@ -18,6 +18,8 @@ const cache={};
 function load(name){if(cache[name])return cache[name];const source=readFileSync('src/components/'+name+'.tsx','utf8');const compiled=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText;const exports={};vm.runInNewContext(compiled,{exports,Date,fetch:async(url,options)=>{requests.push({url,...options});return {ok:true,json:async()=>({success:true})};},require:dep=>{
  if(dep==='react')return mockReact;
  if(dep==='react/jsx-runtime')return require(dep);
+ if(dep==='react-markdown'||dep==='remark-gfm')return require(dep);
+ if(dep==='@/lib/markdown-edit'){const helper={};vm.runInNewContext(ts.transpileModule(readFileSync('src/lib/markdown-edit.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText,{exports:helper});return helper;}
  if(dep.endsWith('.module.css'))return styles;
  if(dep==='next/link')return function PreviewLink({href,children,...props}){return React.createElement('a',{href,...props},children);};
  if(dep==='./useAppendPages')return {useAppendPages:(_scope,_page,items)=>items||[]};

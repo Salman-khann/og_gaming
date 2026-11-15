@@ -1,3 +1,5 @@
+import { loadTestEnvironment } from '../scripts/lib/test-environment.mjs';
+loadTestEnvironment();
 // Run manually: node tests/match-delete-live.mjs http://localhost:3101
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';

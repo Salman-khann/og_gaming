@@ -3,7 +3,6 @@ import { Inter, Rajdhani } from 'next/font/google';
 import './globals.css';
 import './home.css';
 import { AuthProvider } from '@/components/AuthProvider';
-import { SiteStartupLoader } from '@/components/SiteStartupLoader';
 
 const inter = Inter({
   variable: '--font-inter',
@@ -40,7 +39,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${inter.variable} ${rajdhani.variable} h-full antialiased dark`}>
-      <body className="min-h-full flex flex-col font-sans"><noscript><style>{'[data-startup-loader]{display:none!important}'}</style></noscript><SiteStartupLoader/><AuthProvider>{children}</AuthProvider></body>
+      <body className="min-h-full flex flex-col font-sans">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }

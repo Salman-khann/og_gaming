@@ -1,6 +1,6 @@
 # OG Gaming project review and completion status
 
-**Current scope update (13 October 2026):** memberships/plans, promotions/referrals, disputes and application audit logging have since been removed at the user's request. The review below records the earlier implementation. See [COMMUNITY_SETUP.md](COMMUNITY_SETUP.md) for the current fifteen-migration setup and operator workflow.
+**Current scope update (13 October 2026):** memberships/plans, promotions/referrals, disputes and application audit logging have since been removed at the user's request. The review below records the earlier implementation. See [COMMUNITY_SETUP.md](COMMUNITY_SETUP.md) for the current versioned migration setup and operator workflow.
 
 Reviewed on 13 October 2026 against the five-page proposal and implementation plan. Existing uncommitted work was preserved. The follow-up implements the remaining scope except cabin booking/availability and online payment gateways, which the user excluded. Manual payment verification remains available.
 
@@ -10,7 +10,7 @@ Reviewed on 13 October 2026 against the five-page proposal and implementation pl
 | --- | --- |
 | Teams and identity | Captains create persistent teams and invite linked FACEIT identities. Players accept their own invitations. Entries and team scrims require five accepted, eligible players with freshly verified skill; active registration locks roster changes. |
 | Match board | Solo participation, atomic five-player team scrims, exact ELO balancing for ten verified players, private contact access and historical public participation summaries. Expiry removes contacts; explicit deletion also removes the summary. |
-| Tournaments | Shareable event pages, verified team registration, manual fees, promo discounts, captain check-in windows and automatic no-show release. Brackets require approved, checked-in, paid and eligible teams. |
+| Tournaments | Shareable event pages, verified team registration, manual fees, promo discounts, captain check-in windows and automatic no-show release. Brackets require approved, eligible teams with required payment verified. |
 | Competition | Seeded single and double elimination, automatic byes, loser advancement, grand-final resets, scores and champion completion. Participant captains report disputes; unresolved disputes block result updates. |
 | Administration | Paginated player/team/registration management, bans and role changes with reasons and audit records, last-admin protection, disputes, delivery retries and venue content publishing. |
 | Memberships and growth | Plans, manually verified passes, activation terms, remaining minutes and recorded usage, bounded promo redemptions, referral codes, sponsor/gallery/stream publishing. Membership use does not reserve cabins or time slots. |

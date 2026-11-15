@@ -1,4 +1,8 @@
-import { ShimmerLoader } from '@/components/ui/shimmer-loader';
+import { ArenaLoading } from '@/components/ui/arena-loading';
 export default function Loading() {
-  return <main className="wrap arena-main"><ShimmerLoader showPercent={false} labels={['Loading the arena...', 'Preparing your next page...']}/></main>;
+  return (
+    <main className="wrap arena-main">
+      <ArenaLoading route />
+    </main>
+  );
 }

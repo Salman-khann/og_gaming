@@ -14,7 +14,7 @@ Deployed to https://oggaming.pk with build `kxEaUY2w8M9ysoRCst4Xk`. Production b
 
 In Administration → Tournaments, choose **Manage bracket**, then **Manage matchups**. Select Team A and Team B for each opening match. Choosing an already assigned team swaps it with the team in that slot. Empty slots receive byes, but every match must contain at least one team and each entrant must appear exactly once.
 
-Before generation, the choices include approved, checked-in, paid and eligible teams. **Generate bracket** saves the chosen matchups and closes registration. An existing, unplayed bracket can be rearranged using **Save matchups**; its match IDs and progression links remain intact, and automatic byes are recalculated. Once any scores are recorded, opening matchups lock. Later rounds always follow the recorded winners and losers.
+Before generation, the choices include approved, eligible teams with required payment verified. **Generate bracket** saves the chosen matchups and closes registration. An existing, unplayed bracket can be rearranged using **Save matchups**; its match IDs and progression links remain intact, and automatic byes are recalculated. Once any scores are recorded, opening matchups lock. Later rounds always follow the recorded winners and losers.
 
 Migration `20261015122425_admin_bracket_pairings.sql` installs the server-only function for atomic pairing edits. Public and ordinary authenticated clients cannot execute it directly. The server routes check administrator access. New installations include this function in `supabase/setup.sql`.
 
@@ -32,6 +32,6 @@ Migration `20261015122425_admin_bracket_pairings.sql` installs the server-only f
 - Copy event link copies the public event URL for sharing. Open event opens that URL in a new tab; event detail pages include All tournaments and hide the redundant self-link.
 - Publish to Community adds sponsor links, gallery images or YouTube streams to `/community`. It does not create an event. The form explains the destination and links to the public page; gallery publishing requires an image URL.
 
-Migration `20261013131956_open_team_tournament_applications.sql` is applied to the configured project. It is the sixteenth migration. New installations can use the regenerated `supabase/setup.sql`; existing installations apply only missing migrations.
+Migration `20261013131956_open_team_tournament_applications.sql` is applied to the configured project. New installations can use the regenerated `supabase/setup.sql`; existing installations apply only missing migrations.
 
 Verification covers the production build, type checking, lint, server-render regression checks, all migrations and Postgres workflows. A temporary hosted event was created and cleaned up to verify guest registration, contact privacy, ownership, fee approval, check-in and its public URL. No provider verification or external notification delivery was used. Browser visual inspection was blocked by declined browser permission, so layout has not been visually verified in this turn.

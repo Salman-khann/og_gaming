@@ -12,9 +12,13 @@
 
 # testing
 /coverage
+/test-results/
+/playwright-report/
+/.playwright-mcp/
 
 # next.js
 /.next/
+/.next-browser-test/
 /out/
 
 # production
@@ -22,6 +26,8 @@
 /.deployment/
 
 # misc
+/id_rsa
+/id_rsa.pub
 .DS_Store
 *.pem
 *.p12
@@ -33,6 +39,7 @@
 .pgpass
 /backups/
 /recovery-private/
+repomix-output.*
 
 # debug
 npm-debug.log*
@@ -43,6 +50,7 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
+!.env.test.example
 
 # vercel
 .vercel

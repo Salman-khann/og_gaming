@@ -4,7 +4,7 @@ Memberships, plans, promotions/referral discounts, disputes and application audi
 
 ## Database
 
-The configured project has sixteen migrations installed, including `20261013130626_remove_memberships_promotions_disputes_audit.sql`. Existing installations must apply only their missing migrations, in order. Never rerun the combined setup over an existing database. A new project can use `supabase/setup.sql`; regenerate it with `node scripts/build-database-setup.mjs`.
+The complete migration history is in `supabase/migrations/`; `supabase/setup.sql` is generated and checked against it in CI. Existing installations must apply only their missing migrations, in order. Never rerun the combined setup over an existing database. A new project can use `supabase/setup.sql`; regenerate it with `node scripts/build-database-setup.mjs`.
 
 Removed feature tables were moved to `arena_retired_features`. Existing records remain recoverable by the database owner, with no schema/table access for anonymous, authenticated or application service roles. Their public RPCs and notification triggers are removed. Existing tournament amounts and verified payments are preserved; new entries use the event fee without promotions. Historical migration files remain to support existing installations.
 
@@ -12,7 +12,7 @@ Removed feature tables were moved to `arena_retired_features`. Existing records 
 
 Players sign in with FACEIT, create squads at `/teams` and invite teammates. Each teammate signs in with the matching identity and accepts. These verified squads are used for team scrims. Each account can belong to at most five teams.
 
-Staff publish tournaments, verify manual fee payments and approve teams in `/admin`. Tournament applications are separate from linked squads: anyone can submit a captain name, email, phone, team name and five player names, without FACEIT verification or sign-in. Optional game IDs, city and organiser notes are supported. Contact information is private to organisers. Signed-in entries are linked to the account; guests keep a private browser credential to view pending entries and check in. Captains check in during the configured window. No-shows are released automatically. Single and double elimination use eligible, paid, checked-in teams, with automatic byes and reset finals. Staff enter scores; played dependent games prevent earlier corrections. All venue times are displayed in Pakistan time.
+Staff publish tournaments, verify manual fee payments and approve teams in `/admin`. Tournament applications are separate from linked squads: anyone can submit a captain name, email, phone, team name and five player names, without FACEIT verification or sign-in. Optional game IDs, city and organiser notes are supported. Contact information is private to organisers. Signed-in entries are linked to the account; guests keep a private browser credential to view their own pending entries. Check-in and no-show rejection are retired. Single and double elimination use approved, eligible teams with any required payment verified, with automatic byes and reset finals. Staff enter scores; played dependent games prevent earlier corrections. All venue times are displayed in Pakistan time.
 
 Verified teams post/join scrims as five players. Ten-player gathers are balanced by exact total ELO difference when every player has verified ELO. `/players` and `/leaderboard` show public profiles, retained participation summaries and verified rankings. `/community` shows published sponsors, gallery images and streams.
 

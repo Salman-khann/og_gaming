@@ -1,10 +1,11 @@
+import { loadTestEnvironment } from './lib/test-environment.mjs';
 // Creates one labelled fixture in the configured database. Re-runs preserve scores.
 import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import ts from 'typescript';
 
-process.loadEnvFile('.env.local');
+loadTestEnvironment();
 const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth:{ persistSession:false, autoRefreshToken:false } });
 const compact = process.argv.includes('--compact');
 const slug = 'cs2-double-elimination-test-20-teams' + (compact ? '-compact' : '');

@@ -5,7 +5,7 @@
 - Public forms reject a filled `company_website` bot-trap field. The real field is hidden, excluded from keyboard navigation and has autocomplete disabled. This is an extra filter, not proof of a human; a bot can omit it.
 - Match posting: 5 per hour per account (or guest IP), plus 5 per hour per normalized phone number. Signed-in accounts also share a network cap of 20 per hour.
 - Tournament applications: 5 per five minutes per account (or guest IP), plus 5 per hour per normalized phone and captain email. Signed-in accounts also share a network cap of 20 per five minutes.
-- Password login: 30 per minute per trusted IP and 10 per fifteen minutes per email, including failed attempts. Signup: 10 per hour per trusted IP and 3 per fifteen minutes per email. These limits sit alongside Supabase Auth's own protections.
+- Password login: 30 per minute per trusted IP and 10 per fifteen minutes per email and trusted source address, including failed attempts. Signup: 10 per hour per trusted IP and 3 per fifteen minutes per email and trusted source address. These limits sit alongside Supabase Auth's own protections.
 - Match joins and team actions have account and network limits. The existing atomic Postgres rate-limit function enforces shared limits across application instances; database failure rejects the protected action rather than bypassing the limit.
 - Rate-limit buckets use an HMAC with a private key, so database records do not contain raw phone numbers, email addresses, account IDs or IPs. Rejections use HTTP 429 with `Retry-After` and `Cache-Control: no-store`. The retry time is a conservative full-window estimate.
 

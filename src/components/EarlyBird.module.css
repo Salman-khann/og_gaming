@@ -1,0 +1,41 @@
+.panel {
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid rgba(239, 174, 86, 0.38);
+  border-radius: 14px;
+  background:
+    radial-gradient(ellipse at top left, rgba(229, 147, 49, 0.12), transparent 75%), #19150f;
+  box-shadow:
+    0 0 28px rgba(229, 147, 49, 0.07),
+    inset 0 1px 0 rgba(255, 220, 168, 0.05);
+}
+.panel input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  accent-color: #e8b46e;
+}
+.label {
+  color: #f1c78b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.price {
+  color: #ffe1b2;
+  font-size: 24px;
+  font-weight: 700;
+}
+.regular {
+  margin-left: 10px;
+  color: #b8ac9b;
+  font-size: 14px;
+}
+.note {
+  color: #c3b8a8;
+  font-size: 13px;
+  line-height: 1.6;
+  margin-top: 8px;
+}
