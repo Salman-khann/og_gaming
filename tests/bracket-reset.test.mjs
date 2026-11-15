@@ -34,6 +34,7 @@ const passwordVerifier = load('src/lib/bracket-reset-password.ts', {
 
 const event = '10000000-0000-4000-8000-000000000001';
 const { PATCH } = load('src/app/api/tournaments/bracket/route.ts', {
+  '@/lib/storage-cleanup': { cleanupScorecardsAfterResponse: () => calls.push({ cleanupScheduled: true }) },
   '@/lib/supabase/server': {}, 'next/server': {},
   '@/lib/supabase/admin': { createAdminClient: () => ({ rpc: async (name, args) => { calls.push({ name, args }); return { data: [`${event}/match/image.png`], error: null }; }, storage: { from: () => ({ remove: async paths => { calls.push({ paths }); return { error: null }; } }) } }) },
   '@/lib/api': { ...input, requireProfile: async () => { if (!authenticated) throw new input.ApiError('Login required', 401); if (!permitted) throw new input.ApiError('Access denied', 403); return { db: { auth: { getUser: async () => ({ data: { user: currentUser }, error: null }) } }, profile: { id: 'admin' } }; }, apiError: error => Response.json({ error: error.message }, { status: error.status || 503 }) },
@@ -67,7 +68,7 @@ try {
   assert.equal((await PATCH(request('account password'))).status, 200);
   assert.deepEqual(attempts.at(-1), { email: 'admin@example.test', password: 'account password' }, 'Verify the session email, never a submitted email');
   assert.deepEqual(calls[0], { name: 'reset_competition_bracket', args: { event_id: event, actor_id: 'admin' } });
-  assert.equal(calls.length, 2, 'Authorized reset also removes private scorecard files');
+  assert.deepEqual(calls[1], { cleanupScheduled: true }, 'Authorized reset wakes the durable cleanup worker');
 } finally {
   if (previousUrl === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL; else process.env.NEXT_PUBLIC_SUPABASE_URL = previousUrl;
   if (previousKey === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY; else process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = previousKey;

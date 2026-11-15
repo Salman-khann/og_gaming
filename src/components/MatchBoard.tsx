@@ -43,10 +43,12 @@ export function MatchBoard({
   matches,
   currentProfile,
   onMatchUpdated,
+  externalNotice = false,
 }: {
   matches: MatchRequest[];
   currentProfile: Profile | null;
-  onMatchUpdated: () => void;
+  onMatchUpdated: (message?: string) => void;
+  externalNotice?: boolean;
 }) {
   const [filter, setFilter] = useState('all');
   const [open, setOpen] = useState(false);
@@ -90,7 +92,7 @@ export function MatchBoard({
       if (!response.ok) throw new Error(data.error);
       setMessage(method === 'DELETE' ? 'Post deleted.' : 'Match updated.');
       setOpen(false);
-      onMatchUpdated();
+      onMatchUpdated(method === 'DELETE' ? 'Post deleted.' : 'Match updated.');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unable to update match.');
     } finally {
@@ -148,7 +150,7 @@ export function MatchBoard({
           {error}
         </p>
       )}
-      {message && (
+      {message && !externalNotice && (
         <p className="success-message" role="status">
           {message}
         </p>

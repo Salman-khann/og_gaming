@@ -2,17 +2,23 @@ import { connection, after } from 'next/server';
 import { apiError, ApiError, integer, uuidField } from '@/lib/api';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { refreshLeaderboardPlayer } from '@/lib/leaderboard';
+import { rateLimit } from '@/lib/rate-limit';
+import { publicCacheHeaders } from '@/lib/public-cache';
 export async function GET(request: Request) {
   await connection();
   try {
+    await rateLimit(request, 'player-read', 60, 60);
     const params = new URL(request.url).searchParams,
       db = createAdminClient(),
-      id = params.get('player_id');
-    if (!id) {
+      id = params.get('player_id'),
+      slug = params.get('slug');
+    if (!id && !slug) {
       const page = integer(params.get('page') || 1, 1, 10000);
       let query = db
         .from('profiles')
-        .select('id,faceit_id,faceit_nickname,faceit_level,faceit_elo', { count: 'exact' })
+        .select('id,public_slug,faceit_id,faceit_nickname,faceit_level,faceit_elo', {
+          count: 'exact',
+        })
         .neq('role', 'banned')
         .order('faceit_nickname')
         .order('id')
@@ -31,16 +37,24 @@ export async function GET(request: Request) {
       if (error) throw error;
       return Response.json(
         { players: data, total: count, page },
-        { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' } },
+        { headers: publicCacheHeaders(request) },
       );
     }
-    const playerId = uuidField(id, 'player');
-    const columns = 'id,faceit_id,faceit_nickname,faceit_avatar_url,faceit_level,faceit_elo,role';
-    const account = await db.from('profiles').select(columns).eq('id', playerId).maybeSingle();
+    if (slug && (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80))
+      throw new ApiError('Player not found.', 404);
+    const playerId = slug ? null : uuidField(id, 'player');
+    const columns =
+      'id,public_slug,faceit_id,faceit_nickname,faceit_avatar_url,faceit_level,faceit_elo,role';
+    const account = await db
+      .from('profiles')
+      .select(columns)
+      .eq(slug ? 'public_slug' : 'id', slug || playerId!)
+      .maybeSingle();
     if (account.error) throw account.error;
+    if (slug && !account.data) throw new ApiError('Player not found.', 404);
     const linked = account.data
       ? account
-      : await db.from('profiles').select(columns).eq('faceit_id', playerId).maybeSingle();
+      : await db.from('profiles').select(columns).eq('faceit_id', playerId!).maybeSingle();
     if (linked.error) throw linked.error;
     const profile = linked.data;
     if (profile?.role === 'banned') throw new ApiError('Player not found.', 404);
@@ -68,6 +82,7 @@ export async function GET(request: Request) {
     const player = profile
       ? {
           id: profile.id,
+          public_slug: profile.public_slug,
           faceit_id: profile.faceit_id,
           faceit_nickname: stats?.nickname || profile.faceit_nickname,
           faceit_avatar_url: profile.faceit_avatar_url,
@@ -97,7 +112,8 @@ export async function GET(request: Request) {
       faceitId
         ? db
             .from('registrations')
-            .select('id,team_name,tournament:tournaments(title,slug)')
+            .select('id,team_name,tournament:tournaments!inner(title,slug,status)')
+            .neq('tournament.status', 'draft')
             .contains('roster_details', JSON.stringify([{ faceit_id: faceitId }]))
             .eq('status', 'approved')
             .order('created_at', { ascending: false })

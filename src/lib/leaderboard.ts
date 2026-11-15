@@ -16,10 +16,15 @@ export type LeaderboardPlayer = {
   updated_at: string;
 };
 const inFlight = new Map<string, Promise<void>>();
-export async function refreshLeaderboardPlayer(id: string) {
+export async function refreshLeaderboardPlayer(
+  id: string,
+  deadline = Date.now() + 20000,
+  signal?: AbortSignal,
+) {
   if (inFlight.has(id)) return inFlight.get(id);
   const task = (async () => {
-    const admin = createAdminClient();
+    const budgetSignal = signal || AbortSignal.timeout(Math.max(1, deadline - Date.now()));
+    const admin = createAdminClient(4000, budgetSignal);
     const { data: cached, error: cacheError } = await admin
       .from('faceit_leaderboard')
       .select('updated_at,stats_updated_at')
@@ -45,7 +50,8 @@ export async function refreshLeaderboardPlayer(id: string) {
       window_seconds: 60,
     });
     if (globalGate.error || !globalGate.data) return;
-    const player = await getFaceitPlayerById(id, true);
+    if (Date.now() + 10000 > deadline) return;
+    const player = await getFaceitPlayerById(id, true, budgetSignal);
     if (!player || player.id !== id) return;
     let lifetime: Record<string, unknown> | null = null;
     try {
@@ -54,7 +60,7 @@ export async function refreshLeaderboardPlayer(id: string) {
         {
           headers: { Authorization: 'Bearer ' + process.env.FACEIT_API_KEY },
           cache: 'no-store',
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.any([budgetSignal, AbortSignal.timeout(6000)]),
         },
       );
       if (response.ok) lifetime = (await response.json()).lifetime || null;

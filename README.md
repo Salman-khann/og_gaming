@@ -6,11 +6,19 @@ Memberships/plans, promotions/referrals, disputes and application audit logging 
 
 Next.js app for 5v5 matchmaking and tournaments. The original homepage design is retained.
 
+Project planning documents are in [docs/planning](docs/planning/). Historical extraction files, repository exports and older deployment packages were moved to a private external archive; see [the cleanup record](docs/CLEANUP.md).
+
+See [the latest deployed account/profile update](docs/ACCOUNT_AND_PROFILE_UPDATE.md) for cross-device registrations, readable player links and production verification.
+
+The [26 October session and admin update](docs/SESSION_CANCELLATION_AND_FORMATTING.md) adds durable session refresh, password-protected registration cancellation and formatted tournament descriptions/rules.
+
 See [review remediation and deployment prerequisites](docs/REVIEW_REMEDIATION.md) and [isolated staging](docs/STAGING.md) for the October security changes. Guest forms require real Turnstile keys in production; apply the privacy migration together with the matching app release.
 
 ## Setup
 
 Fill in `.env.local` using `.env.example`. Supabase public credentials and the server-only service role key are required. Set `NEXT_PUBLIC_SITE_URL` to the app's origin. Allow `<app-origin>/auth/callback` in Supabase Auth redirect URLs.
+
+For phone testing on the same Wi-Fi, add the PC's exact LAN origin to `DEV_ALLOWED_ORIGINS` in `.env.local` (for example `http://192.168.18.125:3000`) and its hostname to Next.js `allowedDevOrigins`. Extra origins apply only to development; production still requires the canonical site origin. A changed LAN address requires updating these entries. Turnstile also needs the hostname authorized in Cloudflare for protected registration forms.
 
 For a new project, run `supabase/setup.sql` in the Supabase SQL Editor. It applies all versioned migrations in a transaction. For existing installations, apply only pending migrations in order. Install all pending migrations, including the optional-feature retirement migration, before deploying the current app. See `docs/COMMUNITY_SETUP.md` for the exact list and operator workflow. The provider migration retires historical booking data in a private schema; booking routes, forms, and APIs remain removed. Regenerate the new-project setup after adding migrations with `node scripts/build-database-setup.mjs`.
 

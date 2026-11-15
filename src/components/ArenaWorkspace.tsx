@@ -1,4 +1,6 @@
 'use client';
+import { ArenaLoading } from './ui/arena-loading';
+import { useLoadingVisibility } from './useLoadingVisibility';
 import Link from 'next/link';
 import { useAppendPages } from './useAppendPages';
 import dynamic from 'next/dynamic';
@@ -7,13 +9,13 @@ import { useAuth } from './AuthProvider';
 import type { MatchRequest, Tournament, Registration } from '@/types';
 
 const MatchBoard = dynamic(() => import('./MatchBoard').then((m) => m.MatchBoard), {
-  loading: () => <p role="status">Loading matches…</p>,
+  loading: () => <ArenaLoading />,
 });
 const TournamentsView = dynamic(() => import('./TournamentsView').then((m) => m.TournamentsView), {
-  loading: () => <p role="status">Loading tournaments…</p>,
+  loading: () => <ArenaLoading />,
 });
 const AdminPanel = dynamic(() => import('./AdminPanel').then((m) => m.AdminPanel), {
-  loading: () => <p role="status">Loading administration…</p>,
+  loading: () => <ArenaLoading />,
 });
 type Tab = 'matches' | 'tournaments';
 type ArenaData = {
@@ -42,7 +44,7 @@ export function ArenaWorkspace({
 }) {
   const Container = embedded ? 'div' : 'main';
   const { profile, loading: authLoading } = useAuth();
-  const [selectedTab, setSelectedTab] = useState<Tab>('matches');
+  const [selectedTab, setSelectedTab] = useState<Tab>('tournaments');
   const tab = section || selectedTab;
   const [page, setPage] = useState(1),
     [registrationPage, setRegistrationPage] = useState(1);
@@ -52,11 +54,21 @@ export function ArenaWorkspace({
     setRegistrationPage(1);
     setAdminRevision((value) => value + 1);
   }, []);
-  const dataScope = `${admin ? 'admin:' + adminRevision : tab}:${profile?.id || 'guest'}:${page}:${registrationPage}`;
+  const identityScope = `${admin ? 'admin' : tab}:${profile?.id || 'guest'}`;
+  const scope = `${identityScope}:${adminRevision}`;
+  const dataScope = `${scope}:${page}:${registrationPage}`;
   const [data, setData] = useState<ArenaData>(empty);
   const [loading, setLoading] = useState(true);
   const [loadedSection, setLoadedSection] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const afterMutation = useCallback(
+    (message = 'Changes saved.') => {
+      setNotice(message);
+      refreshAdmin();
+    },
+    [refreshAdmin],
+  );
   const controller = useRef<AbortController | null>(null);
   const lastRefresh = useRef(0);
   const load = useCallback(async () => {
@@ -89,11 +101,11 @@ export function ArenaWorkspace({
     }
   }, [admin, tab, dataScope, page, registrationPage]);
   useEffect(() => {
-    if (admin && (authLoading || profile?.role !== 'admin')) return;
+    if (authLoading || (admin && profile?.role !== 'admin')) return;
     const initial = window.setTimeout(() => void load(), 0);
     const refresh = () => {
       if (document.visibilityState === 'visible' && Date.now() - lastRefresh.current >= 15000)
-        void load();
+        refreshAdmin();
     };
     window.addEventListener('focus', refresh);
     const interval = window.setInterval(refresh, 60000);
@@ -103,24 +115,34 @@ export function ArenaWorkspace({
       window.removeEventListener('focus', refresh);
       window.clearInterval(interval);
     };
-  }, [load, authLoading, admin, profile?.id, profile?.role]);
+  }, [load, authLoading, admin, profile?.id, profile?.role, refreshAdmin]);
   const ready = loadedSection === dataScope;
-  const scope = (admin ? 'admin:' + adminRevision : tab) + ':' + (profile?.id || 'guest');
-  const visibleMatches = useAppendPages(scope + ':matches', page, ready ? data.matches : undefined);
+  const sameIdentity = loadedSection.startsWith(identityScope + ':');
+  const cacheScope = sameIdentity ? loadedSection.split(':').slice(0, -2).join(':') : scope;
+  const visibleMatches = useAppendPages(
+    cacheScope + ':matches',
+    page,
+    ready ? data.matches : undefined,
+  );
   const visibleTournaments = useAppendPages(
-    scope + ':tournaments',
+    cacheScope + ':tournaments',
     page,
     ready ? data.tournaments : undefined,
   );
   const visibleRegistrations = useAppendPages(
-    scope + ':registrations',
+    cacheScope + ':registrations',
     registrationPage,
     ready ? data.registrations : undefined,
   );
+  const displayReady =
+    ready ||
+    (sameIdentity &&
+      (tab === 'matches' && !admin ? visibleMatches.length > 0 : visibleTournaments.length > 0));
+  const showLoading = useLoadingVisibility(authLoading || (loading && !displayReady));
   if (admin && authLoading)
     return (
       <Container className="wrap arena-main">
-        <p role="status">Loading account...</p>
+        <ArenaLoading />
       </Container>
     );
   if (admin && profile?.role !== 'admin')
@@ -158,7 +180,7 @@ export function ArenaWorkspace({
                 : 'Browse events and register your team.'}
           </p>
         </div>
-        <button className="button secondary" onClick={() => void load()} disabled={loading}>
+        <button className="button secondary" onClick={refreshAdmin} disabled={loading}>
           Refresh
         </button>
       </div>
@@ -168,7 +190,7 @@ export function ArenaWorkspace({
           role={section ? undefined : 'tablist'}
           aria-label="Competition sections"
         >
-          {(['matches', 'tournaments'] as Tab[]).map((key) =>
+          {(['tournaments', 'matches'] as Tab[]).map((key) =>
             section ? (
               <Link
                 key={key}
@@ -202,6 +224,11 @@ export function ArenaWorkspace({
         role={!admin && !section ? 'tabpanel' : undefined}
         aria-labelledby={!admin && !section ? 'tab-' + tab : undefined}
       >
+        {notice && (
+          <p className="success-message" role="status">
+            {notice}
+          </p>
+        )}
         {error && (
           <div className="error-message mb-6" role="alert">
             <p>{error}</p>
@@ -210,14 +237,14 @@ export function ArenaWorkspace({
             </button>
           </div>
         )}
-        {loading && !ready ? (
-          <p role="status">Loading…</p>
-        ) : !ready ? null : admin ? (
+        {showLoading ? (
+          <ArenaLoading />
+        ) : !displayReady ? null : admin ? (
           profile?.role === 'admin' ? (
             <AdminPanel
               registrations={visibleRegistrations}
               tournaments={visibleTournaments}
-              onDataRefresh={refreshAdmin}
+              onDataRefresh={afterMutation}
             />
           ) : (
             <p>Administrator access required.</p>
@@ -227,10 +254,16 @@ export function ArenaWorkspace({
             tournaments={visibleTournaments}
             registrations={visibleRegistrations}
             currentProfile={profile}
-            onRegistrationCreated={load}
+            onRegistrationCreated={afterMutation}
+            externalNotice
           />
         ) : (
-          <MatchBoard matches={visibleMatches} currentProfile={profile} onMatchUpdated={load} />
+          <MatchBoard
+            matches={visibleMatches}
+            currentProfile={profile}
+            onMatchUpdated={afterMutation}
+            externalNotice
+          />
         )}
       </div>
       {ready && data.has_more && (

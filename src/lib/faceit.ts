@@ -27,7 +27,12 @@ function remember(data: FaceitPlayerInfo) {
 export function normalizeFaceitNickname(input: string): string {
   let name = input.trim();
   if (/^(?:https?:\/\/)?(?:www\.)?faceit\.com\//i.test(name)) {
-    const url = new URL(/^https?:\/\//i.test(name) ? name : 'https://' + name);
+    let url: URL;
+    try {
+      url = new URL(/^https?:\/\//i.test(name) ? name : 'https://' + name);
+    } catch {
+      throw new FaceitError('Enter a FACEIT nickname or player profile URL.', 400);
+    }
     const parts = url.pathname.split('/').filter(Boolean),
       index = parts.indexOf('players');
     if (
@@ -35,15 +40,19 @@ export function normalizeFaceitNickname(input: string): string {
       index < 0 ||
       !parts[index + 1]
     )
-      throw new Error('Enter a FACEIT nickname or player profile URL.');
-    name = decodeURIComponent(parts[index + 1]);
+      throw new FaceitError('Enter a FACEIT nickname or player profile URL.', 400);
+    try {
+      name = decodeURIComponent(parts[index + 1]);
+    } catch {
+      throw new FaceitError('Enter a FACEIT nickname or player profile URL.', 400);
+    }
   }
   name = name.replace(/^@/, '');
   if (!name || name.length > 40 || /[\s/?#]/.test(name))
-    throw new Error('Enter a FACEIT nickname or player profile URL.');
+    throw new FaceitError('Enter a FACEIT nickname or player profile URL.', 400);
   return name;
 }
-async function requestFaceit(path: string) {
+async function requestFaceit(path: string, signal?: AbortSignal) {
   const token = process.env.FACEIT_API_KEY;
   if (!token || token.startsWith('your-'))
     throw new FaceitError('FACEIT verification is not configured. Please contact OG Gaming.', 503);
@@ -51,7 +60,9 @@ async function requestFaceit(path: string) {
   try {
     response = await fetch('https://open.faceit.com/data/v4' + path, {
       headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
-      signal: AbortSignal.timeout(8000),
+      signal: signal
+        ? AbortSignal.any([signal, AbortSignal.timeout(8000)])
+        : AbortSignal.timeout(8000),
       cache: 'no-store',
     });
   } catch {
@@ -86,9 +97,9 @@ function playerInfo(json: FaceitResponse, name: string): FaceitPlayerInfo {
     !Number.isInteger(game.faceit_elo) ||
     game.faceit_elo < 0
   )
-    throw new Error(name + ' does not have a verified CS2 profile on FACEIT.');
+    throw new FaceitError(name + ' does not have a verified CS2 profile on FACEIT.', 422);
   if (!json.player_id || !json.nickname)
-    throw new Error('FACEIT returned an incomplete profile for ' + name + '.');
+    throw new FaceitError('FACEIT returned an incomplete profile. Please try again.', 503);
   return {
     id: json.player_id,
     nickname: json.nickname,
@@ -126,25 +137,20 @@ async function resolveNickname(nickname: string) {
       json = await requestFaceit('/players/' + encodeURIComponent(exact.player_id));
   }
   if (!json)
-    throw new Error(
+    throw new FaceitError(
       'FACEIT player "' +
         nickname +
         '" was not found. Check the nickname or paste their FACEIT profile URL.',
+      404,
     );
   const data = playerInfo(json, nickname);
   remember(data);
   return data;
 }
-export async function getFaceitPlayerByNickname(input: string): Promise<FaceitPlayerInfo | null> {
-  try {
-    return await verifyFaceitPlayer(input);
-  } catch {
-    return null;
-  }
-}
 export async function getFaceitPlayerById(
   id: string,
   fresh = false,
+  signal?: AbortSignal,
 ): Promise<FaceitPlayerInfo | null> {
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id)) return null;
   const key = 'id:' + id;
@@ -153,7 +159,7 @@ export async function getFaceitPlayerById(
   if (inFlight.has(key)) return inFlight.get(key)!;
   const task = (async () => {
     try {
-      const json = await requestFaceit('/players/' + encodeURIComponent(id));
+      const json = await requestFaceit('/players/' + encodeURIComponent(id), signal);
       const data = json ? playerInfo(json, json.nickname || id) : null;
       if (!data || data.id !== id) return null;
       remember(data);

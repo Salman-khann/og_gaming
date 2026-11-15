@@ -30,7 +30,10 @@ export function Navbar() {
             <span className="muted">Loading account…</span>
           ) : profile ? (
             <>
-              <Link className="account-name" href={'/players/' + profile.id}>
+              <Link
+                className="account-name"
+                href={'/players/' + (profile.public_slug || profile.id)}
+              >
                 {profile.faceit_nickname}
               </Link>
               <button className="button secondary" onClick={() => void logout()}>

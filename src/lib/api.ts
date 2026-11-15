@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { verifiedUser } from './auth-session';
 import type { Profile } from '@/types';
 import type { User } from '@supabase/supabase-js';
 import { ApiError } from './api-input';
@@ -15,13 +16,13 @@ export {
   uuidField,
 } from './api-input';
 export const profileColumns =
-  'id,faceit_id,faceit_nickname,faceit_avatar_url,faceit_elo,faceit_level,faceit_game_id,role,created_at,updated_at';
+  'id,public_slug,faceit_id,faceit_nickname,faceit_avatar_url,faceit_elo,faceit_level,faceit_game_id,role,created_at,updated_at';
 export async function requireProfile(
   admin = false,
-  context?: { db: Awaited<ReturnType<typeof createClient>>; user: User | null },
+  context?: { db?: Awaited<ReturnType<typeof createClient>>; user?: User | null },
 ) {
   const db = context?.db || (await createClient());
-  const user = context ? context.user : (await db.auth.getUser()).data.user;
+  const user = context && context.user !== undefined ? context.user : await verifiedUser(db);
   if (!user) throw new ApiError('Please log in to continue.', 401);
   const { data, error } = await db
     .from('profiles')

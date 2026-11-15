@@ -33,9 +33,7 @@ export async function ownedRoster(actorId: string, teamId: string) {
     .eq('status', 'accepted');
   if (memberError || members?.length !== 5)
     throw new ApiError('Five players must accept their FACEIT roster invitations.');
-  const players = await Promise.all(
-    members.map((member) => getFaceitPlayerById(member.faceit_id, true)),
-  );
+  const players = await Promise.all(members.map((member) => getFaceitPlayerById(member.faceit_id)));
   if (players.some((player) => !player))
     throw new ApiError('Unable to refresh the FACEIT roster. Please try again.', 503);
   const roster = players.map((player) => ({
@@ -44,18 +42,20 @@ export async function ownedRoster(actorId: string, teamId: string) {
     level: player!.level,
     elo: player!.elo,
   }));
-  for (let index = 0; index < members.length; index++) {
-    const { error: refreshError } = await db
-      .from('profiles')
-      .update({
-        faceit_level: roster[index].level,
-        faceit_elo: roster[index].elo,
-        faceit_nickname: roster[index].nickname,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', members[index].user_id)
-      .eq('faceit_id', roster[index].faceit_id);
-    if (refreshError) throw new ApiError('Unable to refresh roster eligibility.', 503);
-  }
+  await Promise.all(
+    members.map(async (member, index) => {
+      const { error: refreshError } = await db
+        .from('profiles')
+        .update({
+          faceit_level: roster[index].level,
+          faceit_elo: roster[index].elo,
+          faceit_nickname: roster[index].nickname,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', member.user_id)
+        .eq('faceit_id', roster[index].faceit_id);
+      if (refreshError) throw new ApiError('Unable to refresh roster eligibility.', 503);
+    }),
+  );
   return { team, roster };
 }

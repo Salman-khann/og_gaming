@@ -27,7 +27,8 @@ export function dispatchAfterResponse() {
 }
 export async function dispatchNotifications(pass = 0, deadline = Date.now() + 20000) {
   if (!configured()) return { delivered: 0, configured: false };
-  const db = createAdminClient();
+  if (Date.now() >= deadline) return { delivered: 0, configured: true };
+  const db = createAdminClient(4000, AbortSignal.timeout(Math.max(1, deadline - Date.now())));
   const { data, error } = await db.rpc('claim_notifications');
   if (error) throw new Error('Unable to claim notifications.');
   let delivered = 0;

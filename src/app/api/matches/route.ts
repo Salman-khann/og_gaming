@@ -1,4 +1,5 @@
 import { verifyCaptcha } from '@/lib/captcha';
+import { verifiedUser } from '@/lib/auth-session';
 import { readArena } from '@/lib/data-service';
 import {
   apiError,
@@ -45,7 +46,15 @@ export async function GET(request: Request) {
     }));
     return Response.json(
       { matches, has_more: result.has_more },
-      { headers: { 'Cache-Control': 'no-store' } },
+      {
+        headers: {
+          'Cache-Control':
+            !request.headers.has('cookie') && !request.headers.has('authorization')
+              ? 'public, s-maxage=15, stale-while-revalidate=60'
+              : 'no-store',
+          Vary: 'Cookie, Authorization',
+        },
+      },
     );
   } catch (error) {
     return apiError(error);
@@ -88,9 +97,7 @@ export async function POST(request: Request) {
       throw new ApiError(error instanceof Error ? error.message : 'Invalid match details.');
     }
     const session = await createClient();
-    const {
-      data: { user },
-    } = await session.auth.getUser();
+    const user = await verifiedUser(session);
     const profile = user ? (await requireProfile(false, { db: session, user })).profile : null;
     const db = createAdminClient();
     const min = integer(body.min_faceit_level, 1, 10),
@@ -156,9 +163,7 @@ export async function DELETE(request: Request) {
     let allowed = ownsPost(jar.get('og_match_' + id)?.value, contact?.delete_token_hash || null);
     if (!allowed) {
       const session = await createClient();
-      const {
-        data: { user },
-      } = await session.auth.getUser();
+      const user = await verifiedUser(session);
       if (user) {
         const { profile } = await requireProfile();
         allowed = profile.role === 'admin' || profile.id === match.creator_id;

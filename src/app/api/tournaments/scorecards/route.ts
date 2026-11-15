@@ -16,19 +16,22 @@ import {
 import { rateLimit } from '@/lib/rate-limit';
 import { SCORECARD_LIMIT } from '@/lib/scorecard-slots';
 import { SCORECARD_BUCKET, SCORECARD_MAX_BYTES, scorecardImage } from '@/lib/scorecard-image';
+import { reserveScorecardCleanup, cleanupScorecardsAfterResponse } from '@/lib/storage-cleanup';
 
 const headers = { 'Cache-Control': 'no-store' };
 export async function GET(request: Request) {
   await connection();
   try {
     const id = uuidField(new URL(request.url).searchParams.get('match_id'), 'match');
-    await rateLimit(request, 'scorecard-read', 60, 60);
     const db = await createClient();
-    const { data: match, error } = await db
-      .from('tournament_matches')
-      .select('id,status,score_a,score_b,team_a,team_b')
-      .eq('id', id)
-      .maybeSingle();
+    const [, { data: match, error }] = await Promise.all([
+      rateLimit(request, 'scorecard-read', 60, 60),
+      db
+        .from('tournament_matches')
+        .select('id,status,score_a,score_b,team_a,team_b')
+        .eq('id', id)
+        .maybeSingle(),
+    ]);
     if (error) throw new ApiError('Unable to load this scorecard.', 503);
     if (!match || match.status !== 'completed')
       throw new ApiError('A scorecard is available after the match finishes.', 404);
@@ -43,16 +46,19 @@ export async function GET(request: Request) {
       .eq('team_b', match.team_b)
       .order('map_number');
     if (result.error) throw new ApiError('Unable to load match screenshots.', 503);
-    const images = await Promise.all(
-      (result.data || []).map(async (row) => {
-        const signed = await admin.storage
-          .from(SCORECARD_BUCKET)
-          .createSignedUrl(row.storage_path, 300);
-        if (signed.error || !signed.data)
-          throw new ApiError('Unable to open a match screenshot.', 503);
-        return { map_number: row.map_number, url: signed.data.signedUrl };
-      }),
-    );
+    const rows = result.data || [];
+    const signed = rows.length
+      ? await admin.storage.from(SCORECARD_BUCKET).createSignedUrls(
+          rows.map((row) => row.storage_path),
+          300,
+        )
+      : { data: [], error: null };
+    if (signed.error || !signed.data || signed.data.some((row) => row.error || !row.signedUrl))
+      throw new ApiError('Unable to open match screenshots.', 503);
+    const images = rows.map((row, index) => ({
+      map_number: row.map_number,
+      url: signed.data![index].signedUrl,
+    }));
     return Response.json({ images }, { headers: { 'Cache-Control': 'private, max-age=60' } });
   } catch (error) {
     return apiError(error);
@@ -88,11 +94,15 @@ export async function POST(request: Request) {
     if (!match || match.status !== 'completed')
       throw new ApiError('Record the series result before uploading screenshots.', 409);
     const path = `${match.tournament_id}/${id}/${randomUUID()}.${image.extension}`;
+    await reserveScorecardCleanup(path);
     const uploaded = await admin.storage
       .from(SCORECARD_BUCKET)
       .upload(path, bytes, { contentType: image.type, upsert: false, cacheControl: '300' });
-    if (uploaded.error)
+    if (uploaded.error) {
+      await reserveScorecardCleanup(path, 0);
+      cleanupScorecardsAfterResponse();
       throw new ApiError('Unable to upload the screenshot. Please try again.', 503);
+    }
     const saved = await admin.rpc('save_match_scorecard', {
       game_id: id,
       map_no: map,
@@ -102,10 +112,11 @@ export async function POST(request: Request) {
       actor_id: profile.id,
     });
     if (saved.error) {
-      await admin.storage.from(SCORECARD_BUCKET).remove([path]);
+      await reserveScorecardCleanup(path, 0);
+      cleanupScorecardsAfterResponse();
       throw dbError(saved.error);
     }
-    if (saved.data) await admin.storage.from(SCORECARD_BUCKET).remove([saved.data]);
+    cleanupScorecardsAfterResponse();
     return Response.json({ success: true }, { headers });
   } catch (error) {
     return apiError(error);
@@ -135,7 +146,7 @@ export async function DELETE(request: Request) {
       actor_id: profile.id,
     });
     if (result.error) throw dbError(result.error);
-    if (result.data) await admin.storage.from(SCORECARD_BUCKET).remove([result.data]);
+    cleanupScorecardsAfterResponse();
     return Response.json({ success: true }, { headers });
   } catch (error) {
     return apiError(error);

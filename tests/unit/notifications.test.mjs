@@ -116,7 +116,7 @@ it('fans out notifications with receipts, idempotency and retry limits without s
     const deferred = rows.find((row) => row.id === 'deferred');
     assert.equal(deferred.status, 'pending');
     assert.equal(deferred.attempts, 0);
-    assert.equal(deferred.lease_until, null);
+    assert.ok(deferred.lease_until == null);
     assert.equal(calls.length, before);
     console.log(
       'Notification channel fan-out, receipts, email idempotency, failed delivery and retry scheduling passed without sending messages.',

@@ -802,6 +802,12 @@
     transition: all 0.3s ease;
   }
 
+  .price-col > div:first-child {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
   .price-col:hover {
     background: #18130a;
   }
@@ -828,11 +834,22 @@
 
   .pkg-grid {
     margin-top: 16px;
+    flex: 1;
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1px;
     background: var(--line);
     border: 1px solid var(--line);
+  }
+
+  .pkg-grid.pkg-grid-single {
+    grid-template-columns: 1fr;
+  }
+
+  .pkg-grid.pkg-grid-single .pkg {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
   }
 
   .pkg {

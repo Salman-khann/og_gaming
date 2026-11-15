@@ -1,7 +1,8 @@
 import { connection } from 'next/server';
+import { publicCacheHeaders } from '@/lib/public-cache';
 import { createClient } from '@/lib/supabase/server';
 import { apiError } from '@/lib/api';
-export async function GET() {
+export async function GET(request: Request) {
   await connection();
   try {
     const db = await createClient();
@@ -12,10 +13,7 @@ export async function GET() {
       .order('created_at', { ascending: false })
       .limit(100);
     if (error) throw error;
-    return Response.json(
-      { content: data },
-      { headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=120' } },
-    );
+    return Response.json({ content: data }, { headers: publicCacheHeaders(request) });
   } catch (error) {
     return apiError(error);
   }

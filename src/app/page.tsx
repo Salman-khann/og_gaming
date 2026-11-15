@@ -21,6 +21,8 @@ import {
 export default function HomePage() {
   const whatsappUrl =
     'https://wa.me/923062779481?text=Hi%20OG%20Gaming%2C%20I%20have%20a%20question';
+  const gtaPrebookWhatsappUrl =
+    'https://wa.me/923062779481?text=Hi%20OG%20Gaming%2C%20I%20want%20to%20pre-book%20GTA%20VI%20at%20the%20PS5%20Lounge.';
   return (
     <div className="legacy-home min-h-screen flex flex-col bg-[var(--bg)] text-[var(--ink)] selection:bg-[var(--orange)] selection:text-black relative">
       <HomeEffects />
@@ -54,9 +56,9 @@ export default function HomePage() {
             </p>
 
             <div className="actions reveal-init reveal-delay-3">
-              <Link className="btn-primary" href="/matches">
+              <Link className="btn-primary" href="/tournaments">
                 <Trophy className="w-4 h-4 text-black" />
-                <span>Find a 5v5 Match</span>
+                <span>Browse Tournaments</span>
               </Link>
 
               <a className="btn-ghost" href={whatsappUrl} target="_blank" rel="noopener noreferrer">
@@ -120,9 +122,8 @@ export default function HomePage() {
                   key={bay.tag}
                   bay={bay}
                   contactUrl={whatsappUrl}
-                  className={`bay cursor-pointer group reveal-init reveal-delay-${idx + 1} ${
-                    bay.type === 'ps5' ? 'ps5' : bay.status === 'live' ? 'live' : 'soon'
-                  }`}
+                  className={`bay cursor-pointer group reveal-init reveal-delay-${idx + 1} ${bay.type === 'ps5' ? 'ps5' : bay.status === 'live' ? 'live' : 'soon'
+                    }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="tag">{bay.tag}</span>
@@ -288,9 +289,9 @@ export default function HomePage() {
                 <div className="mt-4 pt-3 border-t border-[var(--line)]">
                   <Link
                     className="btn-ghost w-full justify-center py-2.5 text-xs font-heading font-bold"
-                    href="/matches"
+                    href="/tournaments"
                   >
-                    <span>Find a 5v5 Match</span>
+                    <span>Browse Tournaments</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
@@ -300,31 +301,13 @@ export default function HomePage() {
                 <div>
                   <h3>PS5 Lounge</h3>
                   <div className="rate">
-                    500<sup>/ hour</sup>
+                    600<sup>/ hour</sup>
                   </div>
-                  <div className="pkg-grid">
-                    <div className="pkg group">
-                      <div className="h">1 hour</div>
-                      <div className="v group-hover:text-[var(--orange)] transition-colors">
-                        500 PKR
-                      </div>
-                    </div>
-                    <div className="pkg group">
-                      <div className="h">2 hours (Duo)</div>
-                      <div className="v group-hover:text-[var(--orange)] transition-colors">
-                        950 PKR
-                      </div>
-                    </div>
-                    <div className="pkg group">
-                      <div className="h">3 hours (Squad)</div>
-                      <div className="v group-hover:text-[var(--orange)] transition-colors">
-                        1,400 PKR
-                      </div>
-                    </div>
+                  <div className="pkg-grid pkg-grid-single">
                     <div className="pkg group">
                       <div className="h">Extra Controller</div>
                       <div className="v group-hover:text-[var(--orange)] transition-colors">
-                        +300 PKR
+                        +250 PKR
                       </div>
                     </div>
                   </div>
@@ -336,11 +319,11 @@ export default function HomePage() {
                 <div className="mt-4 pt-3 border-t border-[var(--line)]">
                   <a
                     className="btn-primary w-full justify-center shadow-md shadow-[var(--orange)]/20 py-2.5 text-xs font-heading font-bold"
-                    href={whatsappUrl}
+                    href={gtaPrebookWhatsappUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    <span>Ask about the lounge</span>
+                    <span>GTA VI Pre-Book Now</span>
                     <ArrowRight className="w-4 h-4" />
                   </a>
                 </div>
@@ -460,7 +443,7 @@ export default function HomePage() {
           <div className="foot-grid">
             <div className="foot-brand">
               <Image
-                src="/site_assets/img_1.png"
+                src="/site_assets/logo_0.png"
                 alt="OG Gaming logo"
                 width={160}
                 height={75}
@@ -471,8 +454,8 @@ export default function HomePage() {
               <a href="#bays">Cabins &amp; Lounge</a>
               <a href="#specs">Specs</a>
               <a href="#pricing">Pricing</a>
-              <Link href="/matches">5v5 Matching</Link>
               <Link href="/tournaments">Tournaments</Link>
+              <Link href="/matches">5v5 Matching</Link>
               <a href="#location">Location</a>
               <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
                 WhatsApp

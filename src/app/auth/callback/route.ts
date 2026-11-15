@@ -48,11 +48,12 @@ export async function GET(request: Request) {
               });
           }
         }
-        const { data: profile } = user
+        const { data: profile, error: profileError } = user
           ? await db.from('profiles').select('role').eq('id', user.id).single()
-          : { data: null };
+          : { data: null, error: null };
+        if (profileError) throw profileError;
         if (!profile || profile.role === 'banned') {
-          await db.auth.signOut();
+          await db.auth.signOut({ scope: 'local' });
           return loginFailure(request, 'This account cannot log in.');
         }
         return Response.redirect(

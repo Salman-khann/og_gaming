@@ -32,6 +32,7 @@ it('merges a captains private approved application over its public projection', 
       select: () => query,
       order: () => query,
       eq: () => query,
+      is: () => query,
       in: (column: string, values: unknown) => {
         if (table === 'public_registrations' && column === 'tournament_id')
           queriedEvents.push(values);
@@ -44,6 +45,6 @@ it('merges a captains private approved application over its public projection', 
     return query;
   });
   const result = await readArena('tournaments');
-  expect(result.registrations).toEqual([privateRow]);
+  expect(result.registrations).toEqual([{ ...privateRow, can_manage: true }]);
   expect(queriedEvents).toEqual([['event']]);
 });

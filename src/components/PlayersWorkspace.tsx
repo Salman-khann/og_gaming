@@ -8,6 +8,7 @@ import { PlayerProfile } from './PlayerProfile';
 
 type Player = {
   id: string;
+  public_slug?: string;
   faceit_id: string | null;
   faceit_nickname: string;
   faceit_level: number;
@@ -53,7 +54,7 @@ function PlayerDirectory() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {players.map((player) => (
           <article key={player.id} className="admin-section">
-            <Link className="text-link" href={'/players/' + player.id}>
+            <Link className="text-link" href={'/players/' + (player.public_slug || player.id)}>
               {player.faceit_nickname}
             </Link>
             <p className="muted">

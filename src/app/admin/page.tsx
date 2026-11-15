@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { verifiedUser } from '@/lib/auth-session';
 import { Navbar } from '@/components/Navbar';
 import { ArenaWorkspace } from '@/components/ArenaWorkspace';
 import { Suspense } from 'react';
@@ -25,11 +26,10 @@ async function AdminContent() {
   let role: string | undefined;
   try {
     const db = await createClient();
-    const {
-      data: { user },
-    } = await db.auth.getUser();
+    const user = await verifiedUser(db);
     if (user) {
-      const { data } = await db.from('profiles').select('role').eq('id', user.id).single();
+      const { data, error } = await db.from('profiles').select('role').eq('id', user.id).single();
+      if (error) throw error;
       role = data?.role;
     }
   } catch {
@@ -38,7 +38,7 @@ async function AdminContent() {
         <Navbar />
         <main className="wrap arena-main">
           <p className="error-message">
-            Administration is unavailable. Configure Supabase and apply the database migrations.
+            Administration is temporarily unavailable. Please try again shortly.
           </p>
         </main>
       </>

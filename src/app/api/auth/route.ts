@@ -1,4 +1,6 @@
-import { connection } from 'next/server';
+import { connection, after } from 'next/server';
+import { verifiedUser } from '@/lib/auth-session';
+import { recoverGuestApplications } from '@/lib/account-applications';
 import { createClient } from '@/lib/supabase/server';
 import { apiError, ApiError, sameOrigin, textField, jsonObject, profileColumns } from '@/lib/api';
 import { cookies } from 'next/headers';
@@ -6,7 +8,7 @@ import { getSteamName } from '@/lib/steam-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { rateLimit, rateLimitSubject } from '@/lib/rate-limit';
 import { rejectBotField } from '@/lib/api-input';
-import { trustedClientAddress } from '@/lib/request-address';
+import { trustedClientAddress, clientNetwork } from '@/lib/request-address';
 export async function GET() {
   await connection();
   try {
@@ -14,9 +16,7 @@ export async function GET() {
     const loginError = jar.get('og_login_error')?.value || '';
     jar.delete('og_login_error');
     const db = await createClient();
-    const {
-      data: { user },
-    } = await db.auth.getUser();
+    const user = await verifiedUser(db);
     if (!user)
       return Response.json(
         { profile: null, loginError },
@@ -28,14 +28,26 @@ export async function GET() {
       .eq('id', user.id)
       .single();
     if (error) throw error;
-    if (profile?.role !== 'banned')
-      await createAdminClient()
-        .from('profiles')
-        .update({ last_active_at: new Date().toISOString() })
-        .eq('id', user.id)
-        .or(
-          'last_active_at.is.null,last_active_at.lt.' + new Date(Date.now() - 900000).toISOString(),
-        );
+    if (profile?.role !== 'banned') {
+      after(async () => {
+        try {
+          const guestRecovery = recoverGuestApplications(db).catch(() => {
+            console.warn('Guest application recovery deferred; account session remains valid.');
+          });
+          const activityUpdate = createAdminClient()
+            .from('profiles')
+            .update({ last_active_at: new Date().toISOString() })
+            .eq('id', user.id)
+            .or(
+              'last_active_at.is.null,last_active_at.lt.' +
+                new Date(Date.now() - 900000).toISOString(),
+            );
+          await Promise.all([guestRecovery, activityUpdate]);
+        } catch {
+          // Non-blocking deferred background session recovery
+        }
+      });
+    }
     if (profile && !profile.faceit_id && typeof user.app_metadata.steam_id === 'string') {
       const name = await getSteamName(user.app_metadata.steam_id);
       if (name && name !== profile.faceit_nickname) {
@@ -48,7 +60,14 @@ export async function GET() {
       }
     }
     return Response.json(
-      { profile: profile?.role === 'banned' ? null : profile },
+      {
+        profile:
+          profile?.role === 'banned'
+            ? null
+            : profile
+              ? { ...profile, account_email: user.email || null }
+              : null,
+      },
       { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
@@ -61,7 +80,7 @@ export async function POST(request: Request) {
     const body = await jsonObject(request);
     const db = await createClient();
     if (body.action === 'logout') {
-      const { error } = await db.auth.signOut();
+      const { error } = await db.auth.signOut({ scope: 'local' });
       if (error) throw error;
       return Response.json({ success: true });
     }
@@ -80,7 +99,8 @@ export async function POST(request: Request) {
       body.action === 'signup' ? 10 : 30,
       body.action === 'signup' ? 3600 : 60,
     );
-    const address = trustedClientAddress(request) || 'local-development';
+    const rawAddress = trustedClientAddress(request);
+    const address = rawAddress ? clientNetwork(rawAddress) : 'local-development';
     await rateLimitSubject(
       body.action === 'signup' ? 'signup-email-ip' : 'login-email-ip',
       JSON.stringify([address, email.toLowerCase()]),
@@ -107,14 +127,13 @@ export async function POST(request: Request) {
     const { error } = await db.auth.signInWithPassword({ email, password });
     if (error)
       throw new ApiError('Unable to log in. Check your credentials and confirm your email.', 401);
-    const {
-      data: { user },
-    } = await db.auth.getUser();
-    const { data: profile } = user
+    const user = await verifiedUser(db);
+    const { data: profile, error: profileError } = user
       ? await db.from('profiles').select('role').eq('id', user.id).single()
-      : { data: null };
+      : { data: null, error: null };
+    if (profileError) throw profileError;
     if (!profile || profile.role === 'banned') {
-      await db.auth.signOut();
+      await db.auth.signOut({ scope: 'local' });
       throw new ApiError('This account cannot log in.', 403);
     }
     return Response.json({

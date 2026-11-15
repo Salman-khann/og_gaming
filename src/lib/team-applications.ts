@@ -4,6 +4,7 @@ import { ownsPost } from './match-ownership';
 import { ApiError, textField } from './api-input';
 import { normalizePhone } from './match-input';
 import type { Registration } from '@/types';
+import { applicationTokens } from './application-cookie';
 export function applicationInput(body: Record<string, unknown>) {
   const players = body.players;
   if (!Array.isArray(players) || players.length !== 5)
@@ -45,12 +46,8 @@ export function applicationInput(body: Record<string, unknown>) {
 }
 export async function guestApplications(eventIds: string[]) {
   const jar = await cookies();
-  const ids = jar
-    .getAll()
-    .map((c) => c.name)
-    .filter((name) => /^og_entry_[a-f0-9-]{36}$/.test(name))
-    .slice(0, 50)
-    .map((name) => name.slice(9));
+  const tokens = applicationTokens(jar);
+  const ids = [...tokens.keys()];
   if (!ids.length || !eventIds.length) return [];
   const db = createAdminClient();
   const contacts = await db
@@ -59,29 +56,15 @@ export async function guestApplications(eventIds: string[]) {
     .in('registration_id', ids);
   if (contacts.error) throw new ApiError('Unable to load your team applications.', 503);
   const owned = (contacts.data || [])
-    .filter((c) => ownsPost(jar.get('og_entry_' + c.registration_id)?.value, c.delete_token_hash))
+    .filter((c) => ownsPost(tokens.get(c.registration_id), c.delete_token_hash))
     .map((c) => c.registration_id);
   if (!owned.length) return [];
   const rows = await db
     .from('registrations')
     .select('*')
+    .is('cancelled_at', null)
     .in('id', owned)
     .in('tournament_id', eventIds);
   if (rows.error) throw new ApiError('Unable to load your team applications.', 503);
   return (rows.data || []).map((row) => ({ ...row, can_manage: true })) as Registration[];
-}
-export async function ownsApplication(id: string, actorId?: string) {
-  const db = createAdminClient(),
-    entry = await db.from('registrations').select('captain_id').eq('id', id).single();
-  if (entry.error) return false;
-  if (actorId && entry.data.captain_id === actorId) return true;
-  const contact = await db
-    .from('registration_contacts')
-    .select('delete_token_hash')
-    .eq('registration_id', id)
-    .single();
-  return ownsPost(
-    (await cookies()).get('og_entry_' + id)?.value,
-    contact.data?.delete_token_hash || null,
-  );
 }

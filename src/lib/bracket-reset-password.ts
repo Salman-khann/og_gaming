@@ -14,10 +14,10 @@ export async function verifyBracketResetPassword(
     error: userError,
   } = await db.auth.getUser();
   if (userError || !user || user.id !== actorId)
-    throw new ApiError('Please log in again before resetting the bracket.', 401);
+    throw new ApiError('Please log in again before confirming this action.', 401);
   if (!user.email)
     throw new ApiError(
-      'Use an administrator account with an email and password to reset brackets.',
+      'Use an administrator account with an email and password to confirm this action.',
       403,
     );
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -57,3 +57,4 @@ export async function verifyBracketResetPassword(
     }
   }
 }
+export const verifyAdminPassword = verifyBracketResetPassword;

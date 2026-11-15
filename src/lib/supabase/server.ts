@@ -19,7 +19,7 @@ export async function createClient() {
         try {
           values.forEach(({ name, value, options }) => store.set(name, value, options));
         } catch {
-          /* Session route refreshes cookies; server components cannot write them. */
+          /* Proxy persists token refreshes before Server Components render. */
         }
       },
     },

@@ -29,11 +29,39 @@ export function validateSchedule(value: unknown): BracketSchedule | null {
   return { start_date, days: [...days].sort((a, b) => a - b) };
 }
 
+export function extractMatchTimings(rules: string | null | undefined): Record<string, string> {
+  if (!rules) return {};
+  const match = rules.match(/<!-- BRACKET_MATCH_TIMINGS: ([\s\S]*?) -->/);
+  if (!match) return {};
+  try {
+    const parsed = JSON.parse(match[1]);
+    return typeof parsed === 'object' && parsed !== null ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+export function injectMatchTimings(
+  rules: string | null | undefined,
+  timings: Record<string, string>,
+): string {
+  const current = String(rules || '');
+  const regex = /<!-- BRACKET_MATCH_TIMINGS: [\s\S]*? -->\s*/;
+  const stripped = current.replace(regex, '').trimEnd();
+  const validTimings = Object.fromEntries(
+    Object.entries(timings).filter(([_, time]) => typeof time === 'string' && time.trim()),
+  );
+  if (!Object.keys(validTimings).length) return stripped;
+  const comment = `\n\n<!-- BRACKET_MATCH_TIMINGS: ${JSON.stringify(validTimings)} -->`;
+  return stripped + comment;
+}
+
 // Schedule the graph in dependency order; unfinished rounds already get dates.
 // Results and API row ordering do not change the assigned slots. Byes use none.
 export function scheduleMatches(
   matches: TournamentMatch[],
   schedule: BracketSchedule | null,
+  options?: { simultaneousLoserR1?: boolean; matchTimes?: Record<string, string> },
 ): Record<string, string> {
   if (!schedule) return {};
   const config = validateSchedule(schedule)!;
@@ -61,26 +89,91 @@ export function scheduleMatches(
     stages.set(match.id, depth);
     return depth;
   }
-  const order = { winners: 0, losers: 1, final: 2, reset: 3 };
-  const games = matches
-    .filter((match) => match.status !== 'bye')
-    .sort(
-      (a, b) =>
-        stage(a) - stage(b) ||
-        order[a.bracket || 'winners'] - order[b.bracket || 'winners'] ||
-        a.round - b.round ||
-        a.position - b.position ||
-        a.id.localeCompare(b.id),
-    );
-  const date = new Date(config.start_date + 'T00:00:00Z'),
-    result: Record<string, string> = {};
-  games.forEach((match, index) => {
-    if (index && index % MATCH_SLOTS.length === 0) date.setUTCDate(date.getUTCDate() + 1);
-    while (!config.days.includes(date.getUTCDay())) date.setUTCDate(date.getUTCDate() + 1);
-    result[match.id] = new Date(
-      date.toISOString().slice(0, 10) + 'T' + MATCH_SLOTS[index % MATCH_SLOTS.length] + ':00+05:00',
-    ).toISOString();
-  });
+
+  const simultaneous = options?.simultaneousLoserR1 ?? false;
+  const result: Record<string, string> = {};
+
+  if (!simultaneous) {
+    const order = { winners: 0, losers: 1, final: 2, reset: 3 };
+    const games = matches
+      .filter((match) => match.status !== 'bye')
+      .sort(
+        (a, b) =>
+          stage(a) - stage(b) ||
+          order[a.bracket || 'winners'] - order[b.bracket || 'winners'] ||
+          a.round - b.round ||
+          a.position - b.position ||
+          a.id.localeCompare(b.id),
+      );
+    const date = new Date(config.start_date + 'T00:00:00Z');
+    games.forEach((match, index) => {
+      if (index && index % MATCH_SLOTS.length === 0) date.setUTCDate(date.getUTCDate() + 1);
+      while (!config.days.includes(date.getUTCDay())) date.setUTCDate(date.getUTCDate() + 1);
+      result[match.id] = new Date(
+        date.toISOString().slice(0, 10) +
+          'T' +
+          MATCH_SLOTS[index % MATCH_SLOTS.length] +
+          ':00+05:00',
+      ).toISOString();
+    });
+  } else {
+    // Simultaneous Losers Round 1 and Winners Round 2
+    const isW2 = (m: TournamentMatch) => m.bracket === 'winners' && m.round === 2;
+    const isL1 = (m: TournamentMatch) => m.bracket === 'losers' && m.round === 1;
+
+    // Schedule games excluding Losers R1 first
+    const order = { winners: 0, losers: 1, final: 2, reset: 3 };
+    const gamesWithoutL1 = matches
+      .filter((m) => m.status !== 'bye' && !isL1(m))
+      .sort(
+        (a, b) =>
+          stage(a) - stage(b) ||
+          order[a.bracket || 'winners'] - order[b.bracket || 'winners'] ||
+          a.round - b.round ||
+          a.position - b.position ||
+          a.id.localeCompare(b.id),
+      );
+
+    const date = new Date(config.start_date + 'T00:00:00Z');
+    gamesWithoutL1.forEach((m, index) => {
+      if (index && index % MATCH_SLOTS.length === 0) date.setUTCDate(date.getUTCDate() + 1);
+      while (!config.days.includes(date.getUTCDay())) date.setUTCDate(date.getUTCDate() + 1);
+      result[m.id] = new Date(
+        date.toISOString().slice(0, 10) +
+          'T' +
+          MATCH_SLOTS[index % MATCH_SLOTS.length] +
+          ':00+05:00',
+      ).toISOString();
+    });
+
+    // Pair Losers Round 1 to start simultaneously with Winners Round 2
+    const l1Games = matches
+      .filter((m) => m.status !== 'bye' && isL1(m))
+      .sort((a, b) => a.position - b.position);
+    const w2Games = matches
+      .filter((m) => m.status !== 'bye' && isW2(m))
+      .sort((a, b) => a.position - b.position);
+
+    l1Games.forEach((l1Match, idx) => {
+      const pairedW2 = w2Games[idx % w2Games.length];
+      if (pairedW2 && result[pairedW2.id]) {
+        result[l1Match.id] = result[pairedW2.id];
+      } else {
+        result[l1Match.id] =
+          result[w2Games[0]?.id] ||
+          new Date(
+            date.toISOString().slice(0, 10) + 'T' + MATCH_SLOTS[0] + ':00+05:00',
+          ).toISOString();
+      }
+    });
+  }
+
+  // Apply custom match timing overrides
+  const overrides = options?.matchTimes || {};
+  for (const [id, time] of Object.entries(overrides)) {
+    if (time) result[id] = time;
+  }
+
   return result;
 }
 

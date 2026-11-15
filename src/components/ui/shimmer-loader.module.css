@@ -3,11 +3,13 @@
   align-items: center;
   gap: 9px;
   max-width: 100%;
+  justify-content: center;
+  line-height: 1.25;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 .symbol {
   color: #f69c5c;
-  line-height: 1;
+  line-height: 1.25;
   width: 19px;
   text-align: center;
   flex-shrink: 0;
@@ -15,14 +17,37 @@
 .cells {
   display: inline-flex;
   white-space: pre;
-  line-height: 1;
+  line-height: 1.25;
   min-width: 0;
 }
 .cell {
   display: inline-block;
+  flex: 0 0 0.62em;
+  width: 0.62em;
+  text-align: center;
   white-space: pre;
   color: #ffdfc8;
   background: #24170f;
+}
+.panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: clamp(180px, 35vh, 320px);
+  padding: 24px 8px;
+}
+.route {
+  min-height: 65vh;
+  animation: reveal 0s 150ms both;
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .tokens {
   color: #b57545;

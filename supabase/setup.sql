@@ -2302,4 +2302,391 @@ GRANT EXECUTE ON FUNCTION public.purge_old_operations() TO service_role;
 SELECT cron.schedule('purge-old-operations','15 3 * * *',$job$SELECT public.purge_old_operations();$job$);
 NOTIFY pgrst,'reload schema';
 
+-- Migration: 20261025095522_durable_scorecard_cleanup_and_team_pages.sql
+-- Session-bound team paging; callers cannot supply another player's identity.
+CREATE FUNCTION public.read_my_teams(page_number integer DEFAULT 1,page_size integer DEFAULT 25) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path='' AS $$
+DECLARE actor public.profiles; result jsonb;
+BEGIN
+ SELECT id,faceit_id INTO actor.id,actor.faceit_id FROM public.profiles WHERE id=(SELECT auth.uid()) AND role<>'banned';
+ IF actor.id IS NULL THEN RAISE EXCEPTION 'Account access required.'; END IF;
+ IF page_number IS NULL OR page_number NOT BETWEEN 1 AND 10000 OR page_size IS NULL OR page_size NOT BETWEEN 1 AND 50 THEN RAISE EXCEPTION 'Invalid team page.'; END IF;
+ WITH eligible AS MATERIALIZED (
+  SELECT t.id,t.name,t.captain_id,t.created_at FROM public.teams t
+  WHERE t.captain_id=actor.id OR EXISTS (
+   SELECT 1 FROM public.team_members m WHERE m.team_id=t.id AND (
+    (m.user_id=actor.id AND m.status='accepted') OR
+    (m.faceit_id=actor.faceit_id AND m.status='invited' AND m.expires_at>now())
+   )
+  )
+ ), selected AS MATERIALIZED (
+  SELECT * FROM eligible ORDER BY (captain_id=actor.id) DESC,created_at DESC,id
+  LIMIT page_size OFFSET (page_number-1)*page_size
+ ), roster AS (
+  SELECT m.id,m.team_id,m.user_id,m.faceit_id,m.nickname,m.status,m.expires_at,m.created_at
+  FROM public.team_members m JOIN selected t ON t.id=m.team_id
+ )
+ SELECT jsonb_build_object(
+  'teams',coalesce((SELECT jsonb_agg(to_jsonb(t) ORDER BY (t.captain_id=actor.id) DESC,t.created_at DESC,t.id) FROM selected t),'[]'::jsonb),
+  'members',coalesce((SELECT jsonb_agg(to_jsonb(m) ORDER BY m.created_at,m.id) FROM roster m),'[]'::jsonb),
+  'page',page_number,'total',(SELECT count(*) FROM eligible),
+  'has_more',(SELECT count(*) FROM eligible)>page_number*page_size
+ ) INTO result;
+ RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION public.read_my_teams(integer,integer) FROM PUBLIC,anon,service_role;
+GRANT EXECUTE ON FUNCTION public.read_my_teams(integer,integer) TO authenticated;
+
+-- No reference FK: jobs must survive deletion of their tournament/match rows.
+CREATE TABLE public.storage_cleanup_jobs (
+ id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+ bucket text NOT NULL CHECK(bucket='match-scorecards'),
+ object_path text NOT NULL,
+ status text NOT NULL DEFAULT 'pending' CHECK(status IN('pending','processing','completed','retained')),
+ attempt_count integer NOT NULL DEFAULT 0 CHECK(attempt_count>=0),
+ next_attempt_at timestamptz NOT NULL DEFAULT now(),
+ lease_token uuid,
+ lease_until timestamptz,
+ completed_at timestamptz,
+ created_at timestamptz NOT NULL DEFAULT now(),
+ UNIQUE(bucket,object_path)
+);
+ALTER TABLE public.storage_cleanup_jobs ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.storage_cleanup_jobs FROM PUBLIC,anon,authenticated;
+GRANT ALL ON public.storage_cleanup_jobs TO service_role;
+CREATE INDEX storage_cleanup_due_idx ON public.storage_cleanup_jobs(next_attempt_at,created_at) WHERE status IN('pending','processing');
+
+CREATE FUNCTION public.queue_scorecard_cleanup(cleanup_path text,delay_seconds integer DEFAULT 0) RETURNS void
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+BEGIN
+ IF cleanup_path IS NULL OR cleanup_path !~ '^[a-f0-9-]{36}/[a-f0-9-]{36}/[A-Za-z0-9_-]+\.(png|jpg|webp)$' OR delay_seconds IS NULL OR delay_seconds NOT BETWEEN 0 AND 3600 THEN RAISE EXCEPTION 'Invalid cleanup request.'; END IF;
+ INSERT INTO public.storage_cleanup_jobs AS jobs(bucket,object_path,next_attempt_at)
+ VALUES('match-scorecards',cleanup_path,now()+make_interval(secs=>delay_seconds))
+ ON CONFLICT(bucket,object_path) DO UPDATE SET
+  status=CASE WHEN jobs.status='processing' THEN 'processing' ELSE 'pending' END,
+  next_attempt_at=least(jobs.next_attempt_at,excluded.next_attempt_at),completed_at=NULL;
+END $$;
+REVOKE ALL ON FUNCTION public.queue_scorecard_cleanup(text,integer) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.queue_scorecard_cleanup(text,integer) TO service_role;
+
+-- Capture paths transactionally before old references disappear, including cascades.
+CREATE FUNCTION arena_private.capture_scorecard_cleanup() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+ IF TG_OP='DELETE' OR OLD.storage_path IS DISTINCT FROM NEW.storage_path THEN
+  PERFORM public.queue_scorecard_cleanup(OLD.storage_path,0);
+ END IF;
+ RETURN NULL;
+END $$;
+REVOKE ALL ON FUNCTION arena_private.capture_scorecard_cleanup() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER scorecard_cleanup_capture AFTER UPDATE OF storage_path OR DELETE ON public.match_scorecards
+ FOR EACH ROW EXECUTE FUNCTION arena_private.capture_scorecard_cleanup();
+
+-- Once deletion has begun, the path cannot be attached again. The worker's lease
+-- and this row lock prevent a new reference racing an external Storage delete.
+CREATE FUNCTION arena_private.guard_scorecard_cleanup_reference() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE job public.storage_cleanup_jobs;
+BEGIN
+ IF TG_OP='UPDATE' AND NEW.storage_path=OLD.storage_path THEN RETURN NEW; END IF;
+ SELECT * INTO job FROM public.storage_cleanup_jobs WHERE bucket='match-scorecards' AND object_path=NEW.storage_path FOR UPDATE;
+ IF job.attempt_count>0 THEN RAISE EXCEPTION 'This screenshot path has expired. Upload it again.'; END IF;
+ RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION arena_private.guard_scorecard_cleanup_reference() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER scorecard_cleanup_reference BEFORE INSERT OR UPDATE OF storage_path ON public.match_scorecards
+ FOR EACH ROW EXECUTE FUNCTION arena_private.guard_scorecard_cleanup_reference();
+
+CREATE FUNCTION public.claim_scorecard_cleanup(batch_size integer,claim_id uuid) RETURNS SETOF public.storage_cleanup_jobs
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+BEGIN
+ IF claim_id IS NULL OR batch_size IS NULL OR batch_size NOT BETWEEN 1 AND 20 THEN RAISE EXCEPTION 'Invalid cleanup batch.'; END IF;
+ UPDATE public.storage_cleanup_jobs j SET status='retained',completed_at=now(),lease_token=NULL,lease_until=NULL
+ WHERE j.status IN('pending','processing') AND j.next_attempt_at<=now() AND (j.lease_until IS NULL OR j.lease_until<now())
+ AND EXISTS(SELECT 1 FROM public.match_scorecards s WHERE s.storage_path=j.object_path);
+ RETURN QUERY
+ WITH candidates AS (
+  SELECT j.id FROM public.storage_cleanup_jobs j
+  WHERE j.status IN('pending','processing') AND j.next_attempt_at<=now() AND (j.lease_until IS NULL OR j.lease_until<now())
+  AND NOT EXISTS(SELECT 1 FROM public.match_scorecards s WHERE s.storage_path=j.object_path)
+  ORDER BY j.next_attempt_at,j.created_at,j.id LIMIT batch_size FOR UPDATE SKIP LOCKED
+ )
+ UPDATE public.storage_cleanup_jobs j SET status='processing',attempt_count=j.attempt_count+1,
+ lease_token=claim_id,lease_until=now()+interval '90 seconds'
+ FROM candidates c WHERE j.id=c.id RETURNING j.*;
+END $$;
+REVOKE ALL ON FUNCTION public.claim_scorecard_cleanup(integer,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_scorecard_cleanup(integer,uuid) TO service_role;
+
+CREATE FUNCTION public.finish_scorecard_cleanup(job_id uuid,claim_id uuid,succeeded boolean) RETURNS void
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+BEGIN
+ UPDATE public.storage_cleanup_jobs SET status=CASE WHEN succeeded THEN 'completed' ELSE 'pending' END,
+ completed_at=CASE WHEN succeeded THEN now() ELSE NULL END,
+ next_attempt_at=now()+make_interval(secs=>60*least(attempt_count,60)),lease_token=NULL,lease_until=NULL
+ WHERE id=job_id AND status='processing' AND lease_token=claim_id;
+END $$;
+REVOKE ALL ON FUNCTION public.finish_scorecard_cleanup(uuid,uuid,boolean) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.finish_scorecard_cleanup(uuid,uuid,boolean) TO service_role;
+NOTIFY pgrst,'reload schema';
+
+-- Migration: 20261025103629_review_integrity_and_worker_hardening.sql
+-- Session-bound team paging; callers cannot supply another player's identity.
+CREATE OR REPLACE FUNCTION public.read_my_teams(page_number integer DEFAULT 1,page_size integer DEFAULT 25) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path='' AS $$
+DECLARE actor public.profiles; result jsonb;
+BEGIN
+ SELECT id,faceit_id INTO actor.id,actor.faceit_id FROM public.profiles WHERE id=(SELECT auth.uid()) AND role<>'banned';
+ IF actor.id IS NULL THEN RAISE EXCEPTION 'Account access required.'; END IF;
+ IF page_number IS NULL OR page_number NOT BETWEEN 1 AND 10000 OR page_size IS NULL OR page_size NOT BETWEEN 1 AND 50 THEN RAISE EXCEPTION 'Invalid team page.'; END IF;
+ WITH ids AS (
+  SELECT id FROM public.teams WHERE captain_id=actor.id
+  UNION SELECT team_id FROM public.team_members WHERE user_id=actor.id AND status='accepted'
+  UNION SELECT team_id FROM public.team_members WHERE faceit_id=actor.faceit_id AND status='invited' AND expires_at>now()
+ ), eligible AS MATERIALIZED (
+  SELECT t.id,t.name,t.captain_id,t.created_at FROM public.teams t JOIN ids ON ids.id=t.id
+ ), selected AS MATERIALIZED (
+  SELECT * FROM eligible ORDER BY (captain_id=actor.id) DESC,created_at DESC,id
+  LIMIT page_size OFFSET (page_number-1)*page_size
+ ), roster AS (
+  SELECT m.id,m.team_id,m.user_id,m.faceit_id,m.nickname,m.status,m.expires_at,m.created_at
+  FROM public.team_members m JOIN selected t ON t.id=m.team_id
+ )
+ SELECT jsonb_build_object(
+  'teams',coalesce((SELECT jsonb_agg(to_jsonb(t) ORDER BY (t.captain_id=actor.id) DESC,t.created_at DESC,t.id) FROM selected t),'[]'::jsonb),
+  'members',coalesce((SELECT jsonb_agg(to_jsonb(m) ORDER BY m.created_at,m.id) FROM roster m),'[]'::jsonb),
+  'page',page_number,'total',(SELECT count(*) FROM eligible),
+  'has_more',(SELECT count(*) FROM eligible)>page_number*page_size
+ ) INTO result;
+ RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION public.read_my_teams(integer,integer) FROM PUBLIC,anon,service_role;
+GRANT EXECUTE ON FUNCTION public.read_my_teams(integer,integer) TO authenticated;
+
+
+CREATE OR REPLACE FUNCTION public.create_competition_bracket(event_id uuid,graph jsonb) RETURNS void
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE event public.tournaments; item jsonb; seed uuid; teams integer; eligible_ids uuid[];
+BEGIN
+ SELECT * INTO event FROM public.tournaments WHERE id=event_id FOR UPDATE;
+ IF event.id IS NULL OR event.status NOT IN('upcoming','ongoing') OR EXISTS(SELECT 1 FROM public.tournament_matches WHERE tournament_id=event_id) THEN RAISE EXCEPTION 'This tournament cannot generate another bracket.'; END IF;
+ SELECT coalesce(array_agg(id),'{}'::uuid[]) INTO eligible_ids FROM public.eligible_registrations(event_id);
+ teams:=cardinality(eligible_ids);
+ IF teams<2 THEN RAISE EXCEPTION 'At least two approved teams with any required payment verified are required.'; END IF;
+ IF jsonb_array_length(graph) NOT BETWEEN 1 AND 256 THEN RAISE EXCEPTION 'Invalid bracket graph.'; END IF;
+ FOR item IN SELECT * FROM jsonb_array_elements(graph) LOOP
+  FOREACH seed IN ARRAY ARRAY[(item->>'team_a')::uuid,(item->>'team_b')::uuid] LOOP
+   IF seed IS NOT NULL AND NOT (seed=ANY(eligible_ids)) THEN RAISE EXCEPTION 'A bracket team is no longer eligible.'; END IF;
+  END LOOP;
+  INSERT INTO public.tournament_matches(tournament_id,bracket,node_key,round,position,team_a,team_b,source_a,source_b,outcome_a,outcome_b)
+  VALUES(event_id,item->>'bracket',item->>'key',(item->>'round')::integer,(item->>'position')::integer,(item->>'team_a')::uuid,(item->>'team_b')::uuid,item->>'source_a',item->>'source_b',item->>'outcome_a',item->>'outcome_b');
+ END LOOP;
+ IF (SELECT count(DISTINCT seed_id) FROM public.tournament_matches m CROSS JOIN LATERAL unnest(ARRAY[m.team_a,m.team_b]) seed_id WHERE m.tournament_id=event_id AND seed_id IS NOT NULL)<>teams THEN RAISE EXCEPTION 'The entrant list changed; regenerate the bracket.'; END IF;
+ UPDATE public.tournaments SET status='ongoing',updated_at=now() WHERE id=event_id;
+ PERFORM public.advance_competition(event_id);
+END $$;
+
+
+CREATE OR REPLACE FUNCTION public.purge_old_operations() RETURNS integer
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE removed integer;
+BEGIN
+ DELETE FROM public.notifications_log WHERE created_at<now()-interval '30 days' AND (lease_until IS NULL OR lease_until<now());
+ GET DIAGNOSTICS removed=ROW_COUNT;
+ DELETE FROM public.contact_reveals WHERE created_at<now()-interval '30 days';
+ DELETE FROM public.storage_cleanup_jobs WHERE status IN('completed','retained') AND completed_at<now()-interval '30 days' AND lease_until IS NULL;
+ RETURN removed;
+END $$;
+
+
+-- Corrected/cleared results should not retain private screenshots indefinitely.
+CREATE FUNCTION arena_private.expire_stale_scorecards() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+BEGIN
+ DELETE FROM public.match_scorecards s WHERE s.match_id=NEW.id AND (
+  NEW.status<>'completed' OR s.score_a IS DISTINCT FROM NEW.score_a OR s.score_b IS DISTINCT FROM NEW.score_b
+  OR s.team_a IS DISTINCT FROM NEW.team_a OR s.team_b IS DISTINCT FROM NEW.team_b);
+ RETURN NULL;
+END $$;
+REVOKE ALL ON FUNCTION arena_private.expire_stale_scorecards() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER expire_stale_scorecards AFTER UPDATE OF status,score_a,score_b,team_a,team_b ON public.tournament_matches
+ FOR EACH ROW EXECUTE FUNCTION arena_private.expire_stale_scorecards();
+
+-- Review signals only: free-text identity and unverified contacts are not proof.
+CREATE FUNCTION public.registration_review_flags(actor_id uuid,entry_ids uuid[]) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path='' AS $$
+DECLARE result jsonb;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM public.profiles WHERE id=actor_id AND role='admin') THEN RAISE EXCEPTION 'Administrator access required.'; END IF;
+ IF entry_ids IS NULL OR cardinality(entry_ids)>50 THEN RAISE EXCEPTION 'Invalid review page.'; END IF;
+ WITH targets AS MATERIALIZED(SELECT * FROM public.registrations WHERE id=ANY(entry_ids) AND status<>'rejected'),
+ roster AS MATERIALIZED(
+  SELECT r.id,r.tournament_id,r.team_name,lower(trim(p->>'nickname')) AS nickname,nullif(lower(trim(p->>'game_id')),'') AS game_id
+  FROM public.registrations r CROSS JOIN LATERAL jsonb_array_elements(r.roster_details) p
+  WHERE r.status<>'rejected' AND r.tournament_id IN(SELECT tournament_id FROM targets)
+ ), issues AS (
+  SELECT a.id,'Player name "'||a.nickname||'" also appears on '||b.team_name AS warning
+  FROM roster a JOIN targets t ON t.id=a.id JOIN roster b ON a.tournament_id=b.tournament_id AND a.id<>b.id AND a.nickname=b.nickname AND a.nickname<>''
+  UNION
+  SELECT a.id,'A game ID/profile link also appears on '||b.team_name
+  FROM roster a JOIN targets t ON t.id=a.id JOIN roster b ON a.tournament_id=b.tournament_id AND a.id<>b.id AND a.game_id=b.game_id
+  UNION
+  SELECT a.id,'Captain contact also appears on '||b.team_name
+  FROM targets a JOIN public.registration_contacts ca ON ca.registration_id=a.id
+  JOIN public.registrations b ON a.tournament_id=b.tournament_id AND a.id<>b.id AND b.status<>'rejected'
+  JOIN public.registration_contacts cb ON cb.registration_id=b.id AND (ca.phone=cb.phone OR lower(ca.email)=lower(cb.email))
+  UNION
+  SELECT t.id,'A roster name matches a banned profile; verify identity before approval.'
+  FROM targets t JOIN roster r ON r.id=t.id JOIN public.profiles p ON p.role='banned' AND lower(trim(p.faceit_nickname))=r.nickname
+  UNION
+  SELECT t.id,'Captain contact matches a previous application linked to a banned account; verify ownership.'
+  FROM targets t JOIN public.registration_contacts c ON c.registration_id=t.id
+  JOIN public.registration_contacts old ON old.phone=c.phone OR lower(old.email)=lower(c.email)
+  JOIN public.registrations prior ON prior.id=old.registration_id
+  JOIN public.profiles p ON p.id=prior.captain_id AND p.role='banned'
+ ), grouped AS (SELECT id,(array_agg(DISTINCT warning ORDER BY warning))[1:10] AS warnings FROM issues GROUP BY id)
+ SELECT coalesce(jsonb_object_agg(id::text,to_jsonb(warnings)),'{}'::jsonb) INTO result FROM grouped;
+ RETURN result;
+END $$;
+REVOKE ALL ON FUNCTION public.registration_review_flags(uuid,uuid[]) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.registration_review_flags(uuid,uuid[]) TO service_role;
+NOTIFY pgrst,'reload schema';
+
+-- Migration: 20261025121410_readable_player_urls.sql
+ALTER TABLE public.profiles ADD COLUMN public_slug text;
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_public_slug_unique UNIQUE(public_slug);
+ALTER TABLE public.profiles ADD CONSTRAINT profiles_public_slug_format CHECK(public_slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$');
+
+CREATE FUNCTION arena_private.assign_player_slug() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE base text; candidate text; suffix integer:=1;
+BEGIN
+ IF TG_OP='UPDATE' AND OLD.public_slug IS NOT NULL THEN NEW.public_slug:=OLD.public_slug; RETURN NEW; END IF;
+ -- Serialize allocation, including collisions between a base and another base's suffix.
+ PERFORM pg_advisory_xact_lock(136447215);
+ base:=trim(both '-' from regexp_replace(lower(left(NEW.faceit_nickname,60)),'[^a-z0-9]+','-','g'));
+ IF base='' THEN base:='player'; END IF;
+ candidate:=base;
+ WHILE EXISTS(SELECT 1 FROM public.profiles WHERE public_slug=candidate) LOOP
+  suffix:=suffix+1; candidate:=base||'-'||suffix;
+ END LOOP;
+ NEW.public_slug:=candidate; RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION arena_private.assign_player_slug() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER assign_player_slug BEFORE INSERT OR UPDATE OF public_slug ON public.profiles
+ FOR EACH ROW EXECUTE FUNCTION arena_private.assign_player_slug();
+DO $$ DECLARE player record; BEGIN
+ FOR player IN SELECT id FROM public.profiles ORDER BY created_at,id LOOP
+  UPDATE public.profiles SET public_slug=NULL WHERE id=player.id;
+ END LOOP;
+END $$;
+ALTER TABLE public.profiles ALTER COLUMN public_slug SET NOT NULL;
+GRANT SELECT(public_slug) ON public.profiles TO anon,authenticated;
+NOTIFY pgrst,'reload schema';
+
+-- Migration: 20261025121708_verified_account_applications.sql
+CREATE INDEX registration_contact_email_lookup ON public.registration_contacts(lower(email));
+CREATE FUNCTION arena_private.claim_my_guest_applications() RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE actor uuid:=(SELECT auth.uid()); verified_email text; changed integer;
+BEGIN
+ SELECT lower(u.email) INTO verified_email FROM auth.users u JOIN public.profiles p ON p.id=u.id
+ WHERE u.id=actor AND u.email_confirmed_at IS NOT NULL AND p.role<>'banned';
+ IF verified_email IS NULL THEN RETURN 0; END IF;
+ UPDATE public.registrations r SET captain_id=actor
+ FROM public.registration_contacts c
+ WHERE c.registration_id=r.id AND lower(c.email)=verified_email AND r.captain_id IS NULL
+ AND NOT EXISTS(SELECT 1 FROM public.tournament_matches m WHERE m.tournament_id=r.tournament_id);
+ GET DIAGNOSTICS changed=ROW_COUNT; RETURN changed;
+END $$;
+REVOKE ALL ON FUNCTION arena_private.claim_my_guest_applications() FROM PUBLIC,anon,service_role;
+GRANT EXECUTE ON FUNCTION arena_private.claim_my_guest_applications() TO authenticated;
+CREATE FUNCTION public.claim_my_guest_applications() RETURNS integer
+LANGUAGE sql SECURITY INVOKER SET search_path='' AS $$ SELECT arena_private.claim_my_guest_applications() $$;
+REVOKE ALL ON FUNCTION public.claim_my_guest_applications() FROM PUBLIC,anon,service_role;
+GRANT EXECUTE ON FUNCTION public.claim_my_guest_applications() TO authenticated;
+NOTIFY pgrst,'reload schema';
+
+-- Migration: 20261025194651_registration_cancellation.sql
+ALTER TABLE public.registrations ADD COLUMN cancelled_at timestamptz;
+ALTER TABLE public.registrations ADD CONSTRAINT cancelled_registration_rejected CHECK(cancelled_at IS NULL OR status='rejected');
+DROP INDEX public.registrations_captain_unique;
+CREATE UNIQUE INDEX registrations_captain_unique ON public.registrations(tournament_id,captain_id) WHERE cancelled_at IS NULL;
+
+CREATE FUNCTION arena_private.guard_cancelled_registration() RETURNS trigger
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+BEGIN
+ IF OLD.cancelled_at IS NOT NULL AND (NEW.cancelled_at IS DISTINCT FROM OLD.cancelled_at OR NEW.status<>'rejected') THEN
+  RAISE EXCEPTION 'This registration was cancelled. Submit a new application instead.';
+ END IF;
+ RETURN NEW;
+END $$;
+REVOKE ALL ON FUNCTION arena_private.guard_cancelled_registration() FROM PUBLIC,anon,authenticated,service_role;
+CREATE TRIGGER cancelled_registration_guard BEFORE UPDATE ON public.registrations
+ FOR EACH ROW EXECUTE FUNCTION arena_private.guard_cancelled_registration();
+
+CREATE FUNCTION public.cancel_team_registration(actor_id uuid,entry_id uuid) RETURNS void
+LANGUAGE plpgsql SECURITY INVOKER SET search_path='' AS $$
+DECLARE event_id uuid; entry public.registrations;
+BEGIN
+ IF NOT EXISTS(SELECT 1 FROM public.profiles WHERE id=actor_id AND role='admin') THEN RAISE EXCEPTION 'Administrator access required.'; END IF;
+ SELECT tournament_id INTO event_id FROM public.registrations WHERE id=entry_id;
+ IF event_id IS NULL THEN RAISE EXCEPTION 'Team registration not found.'; END IF;
+ PERFORM 1 FROM public.tournaments WHERE id=event_id FOR UPDATE;
+ SELECT * INTO entry FROM public.registrations WHERE id=entry_id FOR UPDATE;
+ IF entry.id IS NULL OR entry.tournament_id<>event_id THEN RAISE EXCEPTION 'Registration changed. Refresh and try again.'; END IF;
+ IF entry.cancelled_at IS NOT NULL THEN RETURN; END IF;
+ IF EXISTS(SELECT 1 FROM public.tournament_matches WHERE tournament_id=event_id) THEN
+  RAISE EXCEPTION 'The bracket has started. Reset the bracket before cancelling a team registration.';
+ END IF;
+ UPDATE public.registrations SET status='rejected',cancelled_at=now(),updated_at=now() WHERE id=entry_id;
+END $$;
+REVOKE ALL ON FUNCTION public.cancel_team_registration(uuid,uuid) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.cancel_team_registration(uuid,uuid) TO service_role;
+
+CREATE OR REPLACE FUNCTION arena_private.claim_my_guest_applications() RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path='' AS $$
+DECLARE actor uuid:=(SELECT auth.uid()); verified_email text; changed integer;
+BEGIN
+ SELECT lower(u.email) INTO verified_email FROM auth.users u JOIN public.profiles p ON p.id=u.id
+ WHERE u.id=actor AND u.email_confirmed_at IS NOT NULL AND p.role<>'banned';
+ IF verified_email IS NULL THEN RETURN 0; END IF;
+ UPDATE public.registrations r SET captain_id=actor FROM public.registration_contacts c
+ WHERE c.registration_id=r.id AND lower(c.email)=verified_email AND r.captain_id IS NULL AND r.cancelled_at IS NULL
+ AND NOT EXISTS(SELECT 1 FROM public.tournament_matches m WHERE m.tournament_id=r.tournament_id);
+ GET DIAGNOSTICS changed=ROW_COUNT; RETURN changed;
+END $$;
+NOTIFY pgrst,'reload schema';
+
+-- Migration: 20261028192434_tournament_early_bird.sql
+-- A registration snapshots its fee; later offer edits never reprice existing teams.
+ALTER TABLE public.tournaments
+  ADD COLUMN early_bird_fee numeric(10,2),
+  ADD COLUMN early_bird_deadline timestamptz,
+  ADD CONSTRAINT tournament_early_bird_valid CHECK (
+    (early_bird_fee IS NULL AND early_bird_deadline IS NULL)
+    OR (early_bird_fee IS NOT NULL AND early_bird_deadline IS NOT NULL
+      AND early_bird_fee >= 0 AND early_bird_fee < entry_fee
+      AND early_bird_deadline <= registration_deadline)
+  );
+
+CREATE OR REPLACE FUNCTION public.guard_tournament_registration() RETURNS trigger LANGUAGE plpgsql SET search_path='' AS $$
+DECLARE t public.tournaments;
+BEGIN
+ SELECT * INTO t FROM public.tournaments WHERE id=NEW.tournament_id FOR UPDATE;
+ IF TG_OP='INSERT' THEN
+  IF EXISTS(SELECT 1 FROM public.tournament_matches WHERE tournament_id=t.id) THEN RAISE EXCEPTION 'The bracket has started; registration is closed.'; END IF;
+  NEW.amount_due := CASE
+    WHEN t.status = 'upcoming' AND t.early_bird_fee IS NOT NULL
+      AND t.early_bird_deadline > clock_timestamp()
+      AND t.registration_deadline > clock_timestamp()
+    THEN t.early_bird_fee ELSE t.entry_fee END;
+  NEW.payment_status:=CASE WHEN NEW.amount_due>0 THEN 'pending' ELSE 'not_required' END;
+ ELSIF EXISTS(SELECT 1 FROM public.tournament_matches WHERE tournament_id=t.id) AND (
+  NEW.status IS DISTINCT FROM OLD.status OR NEW.payment_status IS DISTINCT FROM OLD.payment_status OR NEW.amount_due IS DISTINCT FROM OLD.amount_due OR NEW.roster_details IS DISTINCT FROM OLD.roster_details OR NEW.team_id IS DISTINCT FROM OLD.team_id OR NEW.captain_id IS DISTINCT FROM OLD.captain_id) THEN RAISE EXCEPTION 'Team eligibility and roster are locked after bracket generation.';
+ END IF;
+ IF NEW.status='approved' AND NEW.amount_due>0 AND NEW.payment_status<>'verified' THEN RAISE EXCEPTION 'Verify payment before approving this team.'; END IF;
+ RETURN NEW;
+END $$;
+
 COMMIT;

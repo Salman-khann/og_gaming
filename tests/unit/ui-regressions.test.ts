@@ -53,7 +53,7 @@ it('keeps administration protected in guest, player, and loading states', () => 
   );
   state.auth = { profile: null, loading: true };
   expect(renderToString(createElement(ArenaWorkspace, { admin: true }))).toContain(
-    'Loading account',
+    'aria-label="Loading the arena..."',
   );
 });
 it('does not fetch the directory for legacy player profile links', () => {

@@ -52,18 +52,18 @@ export function HomeHeader() {
             Home
           </a>
           <Link
-            href="/matches"
-            className="font-heading uppercase text-sm font-semibold text-[var(--orange)]"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            5v5 Matching
-          </Link>
-          <Link
             href="/tournaments"
             className="font-heading uppercase text-sm font-semibold text-[var(--orange)]"
             onClick={() => setMobileMenuOpen(false)}
           >
             Tournaments
+          </Link>
+          <Link
+            href="/matches"
+            className="font-heading uppercase text-sm font-semibold text-[var(--orange)]"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            5v5 Matching
           </Link>
           <Link
             href="/leaderboard"
@@ -83,7 +83,7 @@ export function HomeHeader() {
           {currentProfile ? (
             <DropdownMenu>
               <Link
-                href={'/players/' + currentProfile.id}
+                href={'/players/' + (currentProfile.public_slug || currentProfile.id)}
                 className="flex items-center gap-2.5 px-3.5 py-1.5 rounded-lg bg-[#151109] border border-[var(--line)] hover:border-[var(--orange)] transition-all cursor-pointer outline-none shadow-md"
               >
                 <span
@@ -178,18 +178,18 @@ export function HomeHeader() {
             Home
           </a>
           <Link
-            href="/matches"
-            className="font-heading uppercase text-sm font-semibold text-[var(--orange)]"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            5v5 Matching
-          </Link>
-          <Link
             href="/tournaments"
             className="font-heading uppercase text-sm font-semibold text-[var(--orange)]"
             onClick={() => setMobileMenuOpen(false)}
           >
             Tournaments
+          </Link>
+          <Link
+            href="/matches"
+            className="font-heading uppercase text-sm font-semibold text-[var(--orange)]"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            5v5 Matching
           </Link>
           <Link
             href="/leaderboard"
@@ -213,7 +213,7 @@ export function HomeHeader() {
                     {currentProfile.faceit_level}
                   </span>
                   <Link
-                    href={'/players/' + currentProfile.id}
+                    href={'/players/' + (currentProfile.public_slug || currentProfile.id)}
                     onClick={() => setMobileMenuOpen(false)}
                     className="text-sm font-heading font-bold text-[var(--ink)]"
                   >

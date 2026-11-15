@@ -56,8 +56,10 @@ export function rejectBotField(body: Record<string, unknown>) {
     throw new ApiError('Unable to submit this form.', 400);
 }
 
-export async function jsonObject(request: Request): Promise<Record<string, unknown>> {
-  const maximum = 65536;
+export async function jsonObject(
+  request: Request,
+  maximum = 65536,
+): Promise<Record<string, unknown>> {
   if (Number(request.headers.get('content-length')) > maximum)
     throw new ApiError('Request is too large.', 413);
   let body: unknown;
@@ -136,8 +138,17 @@ export function money(value: unknown, maximum = 99999999): number {
 
 export function sameOrigin(request: Request) {
   const origin = request.headers.get('origin');
+  // Browser mutations require an explicit Origin. The worker uses its separate
+  // Bearer credential, and OAuth callbacks use their provider/state validation.
+  const expected = new URL(process.env.NEXT_PUBLIC_SITE_URL || request.url).origin;
+  const developmentOrigins =
+    process.env.NODE_ENV === 'development'
+      ? (process.env.DEV_ALLOWED_ORIGINS || '').split(',').map((value) => value.trim())
+      : [];
   if (
-    (origin && origin !== new URL(request.url).origin) ||
+    !origin ||
+    origin === 'null' ||
+    (origin !== expected && !developmentOrigins.includes(origin)) ||
     request.headers.get('sec-fetch-site') === 'cross-site'
   )
     throw new ApiError('Invalid request origin.', 403);

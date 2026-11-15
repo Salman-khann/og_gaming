@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FaceitError, verifyFaceitPlayer } from '@/lib/faceit';
 import { rateLimit } from '@/lib/rate-limit';
-import { apiError, ApiError, requireProfile } from '@/lib/api';
+import { apiError, requireProfile } from '@/lib/api';
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -17,10 +17,11 @@ export async function GET(request: NextRequest) {
     const player = await verifyFaceitPlayer(nickname);
     return NextResponse.json({ player });
   } catch (error) {
-    if (error instanceof ApiError) return apiError(error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'FACEIT is unavailable.' },
-      { status: error instanceof FaceitError ? error.status : 400 },
-    );
+    if (error instanceof FaceitError)
+      return NextResponse.json(
+        { error: error.message },
+        { status: error.status, headers: { 'Cache-Control': 'no-store' } },
+      );
+    return apiError(error);
   }
 }

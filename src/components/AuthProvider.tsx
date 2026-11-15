@@ -25,38 +25,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loginError, setLoginError] = useState('');
   const controller = useRef<AbortController | null>(null);
   const lastRefresh = useRef(0);
+  const refreshing = useRef(false);
   const refresh = useCallback(async () => {
     lastRefresh.current = Date.now();
     controller.current?.abort();
     const request = new AbortController();
     controller.current = request;
+    refreshing.current = true;
     try {
-      const response = await fetch('/api/auth', { cache: 'no-store', signal: request.signal });
+      const response = await fetch('/api/auth', {
+        cache: 'no-store',
+        signal: AbortSignal.any([request.signal, AbortSignal.timeout(10000)]),
+      });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error);
       if (request.signal.aborted) return;
+      if (response.status === 401 || response.status === 403) setProfile(null);
+      if (!response.ok) throw new Error(data.error);
       setProfile(data.profile);
       setError('');
       setLoginError((previous) => data.loginError || (data.profile ? '' : previous));
     } catch (error) {
       if (!request.signal.aborted) {
-        setProfile(null);
+        // Keep the last verified display during network/provider failures.
+        // Server authorization never relies on this client-side state.
         setError(error instanceof Error ? error.message : 'Unable to load account.');
       }
     } finally {
+      if (controller.current === request) refreshing.current = false;
       if (!request.signal.aborted) setLoading(false);
     }
   }, []);
   useEffect(() => {
     const timer = window.setTimeout(() => void refresh(), 0);
     const onFocus = () => {
-      if (document.visibilityState === 'visible' && Date.now() - lastRefresh.current >= 15000)
+      if (
+        !refreshing.current &&
+        document.visibilityState === 'visible' &&
+        Date.now() - lastRefresh.current >= 15000
+      )
         void refresh();
     };
     window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    window.addEventListener('online', onFocus);
+    const interval = window.setInterval(onFocus, 60000);
     return () => {
       window.clearTimeout(timer);
       window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+      window.removeEventListener('online', onFocus);
+      window.clearInterval(interval);
       controller.current?.abort();
     };
   }, [refresh]);

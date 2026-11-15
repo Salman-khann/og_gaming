@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { createAdminClient } from './supabase/admin';
 import { createClient } from './supabase/server';
 import { getSteamName } from './steam-profile';
+export class LoginError extends Error {}
 
 export function siteOrigin(request: Request) {
   return new URL(process.env.NEXT_PUBLIC_SITE_URL || request.url).origin;
@@ -43,7 +44,7 @@ export async function consumeSteamState(state: string | null) {
     !/^[a-f0-9]{64}$/.test(expected) ||
     !timingSafeEqual(Buffer.from(state), Buffer.from(expected))
   )
-    throw new Error('Steam login expired. Please try again.');
+    throw new LoginError('Steam login expired. Please try again.');
 }
 
 export async function signInSteamIdentity(steamId: string) {
@@ -86,7 +87,8 @@ export async function signInSteamIdentity(steamId: string) {
     .select('role')
     .eq('id', user.id)
     .single();
-  if (profileError || profile.role === 'banned') throw new Error('This account cannot log in.');
+  if (profileError || !profile) throw new Error('Unable to read the Steam profile.');
+  if (profile.role === 'banned') throw new LoginError('This account cannot log in.');
   if (steamName)
     await admin
       .from('profiles')

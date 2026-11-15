@@ -1,9 +1,13 @@
 'use client';
 import { useState } from 'react';
+import { MarkdownEditor } from './MarkdownEditor';
+import { RegistrationCancelButton } from './RegistrationCancelButton';
 import Link from 'next/link';
 import { OperationsPanel } from './OperationsPanel';
+import { RegistrationWarnings } from './RegistrationWarnings';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from './ui/dialog';
 import styles from './AdminDashboard.module.css';
+import offerStyles from './EarlyBird.module.css';
 import type { Registration, Tournament, TournamentStatus } from '@/types';
 type Props = {
   registrations: Registration[];
@@ -26,6 +30,9 @@ type Form = {
   prize_pool: string;
   rules: string;
   entry_fee: number;
+  early_bird_enabled: boolean;
+  early_bird_fee: number;
+  early_bird_deadline: string;
   payment_instructions: string;
 };
 const blank: Form = {
@@ -44,6 +51,9 @@ const blank: Form = {
   prize_pool: '',
   rules: '',
   entry_fee: 0,
+  early_bird_enabled: false,
+  early_bird_fee: 0,
+  early_bird_deadline: '',
   payment_instructions: '',
 };
 function localDate(iso: string) {
@@ -51,6 +61,7 @@ function localDate(iso: string) {
   return new Date(date.getTime() + 5 * 3600000).toISOString().slice(0, 16);
 }
 export function TournamentAdminPanel({ registrations, tournaments, onDataRefresh }: Props) {
+  const [cancelled, setCancelled] = useState<string[]>([]);
   const [form, setForm] = useState<Form>(blank);
   const [editing, setEditing] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -92,6 +103,9 @@ export function TournamentAdminPanel({ registrations, tournaments, onDataRefresh
       rules: t.rules || '',
       prize_pool: t.prize_pool || '',
       entry_fee: Number(t.entry_fee || 0),
+      early_bird_enabled: t.early_bird_fee != null,
+      early_bird_fee: Number(t.early_bird_fee || 0),
+      early_bird_deadline: t.early_bird_deadline ? localDate(t.early_bird_deadline) : '',
       payment_instructions: t.payment_instructions || '',
     });
     setError('');
@@ -105,6 +119,10 @@ export function TournamentAdminPanel({ registrations, tournaments, onDataRefresh
       tournament_id: editing,
       start_date: new Date(form.start_date + '+05:00').toISOString(),
       registration_deadline: new Date(form.registration_deadline + '+05:00').toISOString(),
+      early_bird_fee: form.early_bird_enabled ? form.early_bird_fee : null,
+      early_bird_deadline: form.early_bird_enabled
+        ? new Date(form.early_bird_deadline + '+05:00').toISOString()
+        : null,
     });
     if (success) {
       setEditing(null);
@@ -112,7 +130,7 @@ export function TournamentAdminPanel({ registrations, tournaments, onDataRefresh
       setEditorOpen(false);
     }
   }
-  const change = (key: keyof Form, value: string | number) =>
+  const change = (key: keyof Form, value: string | number | boolean) =>
     setForm((previous) => ({ ...previous, [key]: value }));
   return (
     <div className="space-y-6">
@@ -264,6 +282,51 @@ export function TournamentAdminPanel({ registrations, tournaments, onDataRefresh
               />
               <span className="muted text-sm">The fee is fixed once a team registers.</span>
             </label>
+            <fieldset className={'wide ' + offerStyles.panel}>
+              <legend className={offerStyles.label}>Early-bird offer</legend>
+              <label className="checkbox-field">
+                <input
+                  type="checkbox"
+                  checked={form.early_bird_enabled}
+                  onChange={(e) => change('early_bird_enabled', e.target.checked)}
+                />
+                Enable early-bird pricing
+              </label>
+              <p className={offerStyles.note}>
+                Reward teams that register early. The regular fee returns automatically when the
+                offer ends.
+              </p>
+              {form.early_bird_enabled && (
+                <div className="field-grid mt-4">
+                  <label className="field">
+                    Early-bird fee per team (PKR)
+                    <input
+                      type="number"
+                      min={0}
+                      max={Math.max(0, form.entry_fee - 0.01)}
+                      step="0.01"
+                      required
+                      value={form.early_bird_fee}
+                      onChange={(e) => change('early_bird_fee', Number(e.target.value))}
+                    />
+                  </label>
+                  <label className="field">
+                    Offer ends (PKT)
+                    <input
+                      type="datetime-local"
+                      required
+                      max={form.registration_deadline || undefined}
+                      value={form.early_bird_deadline}
+                      onChange={(e) => change('early_bird_deadline', e.target.value)}
+                    />
+                  </label>
+                  <p className={'field wide ' + offerStyles.note}>
+                    Changes apply to new applications only. Existing teams keep their saved amount
+                    due.
+                  </p>
+                </div>
+              )}
+            </fieldset>
             <label className="field wide">
               Payment instructions
               <textarea
@@ -280,22 +343,19 @@ export function TournamentAdminPanel({ registrations, tournaments, onDataRefresh
                 onChange={(e) => change('prize_pool', e.target.value)}
               />
             </label>
-            <label className="field wide">
-              Description
-              <textarea
-                rows={3}
-                value={form.description}
-                onChange={(e) => change('description', e.target.value)}
-              />
-            </label>
-            <label className="field wide">
-              Rules
-              <textarea
-                rows={4}
-                value={form.rules}
-                onChange={(e) => change('rules', e.target.value)}
-              />
-            </label>
+            <MarkdownEditor
+              label="Description"
+              rows={3}
+              value={form.description}
+              onChange={(value) => change('description', value)}
+              maxLength={4000}
+            />
+            <MarkdownEditor
+              label="Rules"
+              value={form.rules}
+              onChange={(value) => change('rules', value)}
+              maxLength={8000}
+            />
             <div className="actions field wide">
               <button
                 className="button secondary"
@@ -441,82 +501,93 @@ export function TournamentAdminPanel({ registrations, tournaments, onDataRefresh
       <section className="admin-section">
         <h2>Team registrations ({registrations.length})</h2>
         {!registrations.length && <p className="muted">No registrations yet.</p>}
-        {registrations.map((r) => (
-          <article key={r.id} className="admin-item">
-            <h3>{r.team_name}</h3>
-            <p className="muted">
-              {r.tournament?.title || tournaments.find((t) => t.id === r.tournament_id)?.title} ·{' '}
-              {r.status}
-            </p>
-            {r.contact && (
-              <div className="registration-contact">
-                <strong>Captain: {r.contact.captain_name}</strong>
-                <span>
-                  {r.contact.phone} · {r.contact.email}
-                </span>
-                {r.contact.city && <span>{r.contact.city}</span>}
-                {r.contact.notes && <p>{r.contact.notes}</p>}
+        {registrations
+          .filter((r) => !cancelled.includes(r.id))
+          .map((r) => (
+            <article key={r.id} className="admin-item">
+              <h3>{r.team_name}</h3>
+              <RegistrationWarnings warnings={r.review_warnings} />
+              <p className="muted">
+                {r.tournament?.title || tournaments.find((t) => t.id === r.tournament_id)?.title} ·{' '}
+                {r.status}
+              </p>
+              {r.contact && (
+                <div className="registration-contact">
+                  <strong>Captain: {r.contact.captain_name}</strong>
+                  <span>
+                    {r.contact.phone} · {r.contact.email}
+                  </span>
+                  {r.contact.city && <span>{r.contact.city}</span>}
+                  {r.contact.notes && <p>{r.contact.notes}</p>}
+                </div>
+              )}
+              <p className="muted">
+                Payment:{' '}
+                {r.payment_status === 'verified'
+                  ? 'Verified'
+                  : r.payment_status === 'pending'
+                    ? 'Awaiting screenshot / verification'
+                    : 'Free entry'}
+              </p>
+              <p className="muted">
+                {r.roster_details
+                  .map((p) => p.nickname + (p.game_id ? ' — ' + p.game_id : ''))
+                  .join(', ')}
+              </p>
+              <div className="actions">
+                {r.payment_status === 'pending' && (
+                  <button
+                    className="button"
+                    disabled={busy}
+                    onClick={() =>
+                      void mutate('/api/tournaments', 'PATCH', {
+                        action: 'verify_payment',
+                        registration_id: r.id,
+                      })
+                    }
+                  >
+                    Verify payment screenshot
+                  </button>
+                )}
+                {r.status !== 'approved' && (
+                  <button
+                    className="button"
+                    disabled={busy || r.payment_status === 'pending'}
+                    onClick={() =>
+                      void mutate('/api/tournaments', 'PATCH', {
+                        registration_id: r.id,
+                        status: 'approved',
+                      })
+                    }
+                  >
+                    Approve
+                  </button>
+                )}
+                {r.status !== 'rejected' && (
+                  <button
+                    className="button secondary"
+                    disabled={busy}
+                    onClick={() =>
+                      void mutate('/api/tournaments', 'PATCH', {
+                        registration_id: r.id,
+                        status: 'rejected',
+                      })
+                    }
+                  >
+                    Reject
+                  </button>
+                )}
+                <RegistrationCancelButton
+                  id={r.id}
+                  name={r.team_name}
+                  onCancelled={() => {
+                    setCancelled((previous) => [...previous, r.id]);
+                    onDataRefresh();
+                  }}
+                />
               </div>
-            )}
-            <p className="muted">
-              Payment:{' '}
-              {r.payment_status === 'verified'
-                ? 'Verified'
-                : r.payment_status === 'pending'
-                  ? 'Awaiting screenshot / verification'
-                  : 'Free entry'}
-            </p>
-            <p className="muted">
-              {r.roster_details
-                .map((p) => p.nickname + (p.game_id ? ' — ' + p.game_id : ''))
-                .join(', ')}
-            </p>
-            <div className="actions">
-              {r.payment_status === 'pending' && (
-                <button
-                  className="button"
-                  disabled={busy}
-                  onClick={() =>
-                    void mutate('/api/tournaments', 'PATCH', {
-                      action: 'verify_payment',
-                      registration_id: r.id,
-                    })
-                  }
-                >
-                  Verify payment screenshot
-                </button>
-              )}
-              {r.status !== 'approved' && (
-                <button
-                  className="button"
-                  disabled={busy || r.payment_status === 'pending'}
-                  onClick={() =>
-                    void mutate('/api/tournaments', 'PATCH', {
-                      registration_id: r.id,
-                      status: 'approved',
-                    })
-                  }
-                >
-                  Approve
-                </button>
-              )}
-              {r.status !== 'rejected' && (
-                <button
-                  className="button secondary"
-                  disabled={busy}
-                  onClick={() =>
-                    void mutate('/api/tournaments', 'PATCH', {
-                      registration_id: r.id,
-                      status: 'rejected',
-                    })
-                  }
-                >
-                  Reject
-                </button>
-              )}
-            </div>
-          </article>
-        ))}
+            </article>
+          ))}
       </section>
     </div>
   );

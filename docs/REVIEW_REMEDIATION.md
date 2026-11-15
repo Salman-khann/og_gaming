@@ -1,8 +1,10 @@
 # Code review remediation — 25 October 2026
 
-The fixes below are implemented in the working tree. The new application and migration have **not** been deployed. CAPTCHA keys and an isolated full Supabase staging run are deployment prerequisites. Phone OTP was explicitly deferred in favour of CAPTCHA and abuse controls.
+The second review's additional code fixes are recorded in [UPDATED_REVIEW_REMEDIATION.md](UPDATED_REVIEW_REMEDIATION.md). That additional migration and app change are not yet deployed; the release described below remains the current production release.
 
-The review's claim that no secrets were committed should not be relied on: a root `id_rsa` was tracked. Its removal from Git is staged, it is ignored, and the protected deployment copy is outside the checkout. The scanner now rejects conventional extensionless SSH private-key filenames too. This does not erase history or rotate the key; revoke/replace any key that was shared through Git history.
+The matching application and security/privacy migration were deployed to https://oggaming.pk on 25 October 2026 after an encrypted production backup was authenticated and its archive directory verified. Build: `TfTMsWnviCxAMvBflNZZO`. Full staging was explicitly skipped at the user's request. Phone OTP remains deferred in favour of CAPTCHA and abuse controls.
+
+The review's claim that no secrets were committed should not be relied on: a root `id_rsa` was tracked. It has been removed from tracking, is ignored, and the protected deployment copy is outside the checkout. The scanner now rejects conventional extensionless SSH private-key filenames too. This does not erase history or rotate the key; revoke/replace any key that was shared through Git history.
 
 ## Security
 
@@ -28,7 +30,7 @@ The review's claim that no secrets were committed should not be relied on: a roo
 
 | Review | Result |
 | --- | --- |
-| A1 | Setup is regenerated from all 24 migrations; `database:check` detects drift and runs in CI. |
+| A1 | Setup is generated from the versioned migration directory; `database:check` computes the count, detects drift and runs in CI. |
 | A2 | Standalone duplicate upgrade SQL, generators and the retired-feature wrapper were removed. Use migration history through Supabase CLI. |
 | A3 | Test scripts use `.env.test.local` and reject the known production project even when explicitly designated as staging. Local Supabase is the default; no paid hosted project was created. Docker is not installed on this workstation, so a complete Auth/Storage staging run remains pending. |
 | A4 | Bracket generation, pairings and API entrants share service-only `eligible_registrations`. Historical migrations remain append-only. This project uses imperative migrations (`schema_paths = []`); converting schema management is a separate migration project. |
@@ -57,14 +59,17 @@ Passed: full `npm test` (including all migration fixtures, RLS, ownership, capac
 
 Browser smoke tests mock the API and Turnstile script; server verification is tested independently. They do not prove real Cloudflare, hosted Auth, Storage or provider integrations. Development font downloads failed and fell back during the browser run; the optimized build succeeded. Windows sandbox restrictions required explicit cleanup of the isolated browser-test server; the existing development server was left running.
 
-Before deployment:
+Deployment verification:
 
-1. Configure a real Turnstile widget for the production hostname. Set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` **before building** and `TURNSTILE_SECRET_KEY` on the server. Never expose the secret in a public variable. Use separate staging keys.
-2. Complete the isolated workflow in [STAGING.md](STAGING.md), including hosted FACEIT linking and real CAPTCHA expiry/replay checks.
-3. Back up production and plan a maintenance window. Review/apply `20261024210738_security_privacy_and_capacity.sql` and release the matching app together: the old app's public registration/ranking reads are incompatible with the tightened grants. Do not apply the migration alone while serving the old app.
-4. Verify `npm run security:production` with the **production** environment. The current local development environment fails this gate for missing Turnstile keys and production-only cron/origin/proxy settings; do not replace server secrets with placeholders.
-5. Verify hosted leaked-password protection and provider linking, run database advisors, and smoke-test admin/owner/guest visibility, contact throttling, approval/capacity and scorecard deletion. Monitor scrubbed server logs and CSP reports.
+1. Real Turnstile keys were checked without printing either value. The public key was included in the production build; the secret was passed privately through SSH stdin into a mode-600 server environment file. Production environment validation passed with the existing origin, trusted proxy header and rate-limit secret. A strong server-only worker secret was generated.
+2. The app rollback archive was created before maintenance. The encrypted database archive is outside the repository, with restricted NTFS permissions and a separately stored encryption key. Authentication and `pg_restore --list` passed; 65 data tables included registrations, Auth users and Storage metadata. This is archive validation, not a restore drill. Storage object bytes are not included.
+3. The old app was stopped before applying `20261024210738_security_privacy_and_capacity.sql` through the migration CLI. Migration history and privacy grants were verified before switching to the prepared app. Counts remained 1 tournament, 20 registrations and 39 bracket matches, with no scorecards.
+4. Live checks passed for nine public pages, assets, six API reads, public registration sanitization, anonymous Data API restrictions, protected routes, cross-origin rejection, invalid CAPTCHA rejection on both guest forms, and FACEIT/Steam redirect starts. No test applications or accounts were created. The private environment URL returned 403.
+5. Browser checks confirmed the live guest form and Turnstile script/frame load, plus full-width brackets without page overflow at 1440px and 390px. The automated browser did not obtain a valid CAPTCHA token or interact with a challenge; an end-to-end human challenge completion is not claimed.
+6. Hosted database advisors returned one warning: `auth_leaked_password_protection` remains disabled. No other advisor warnings were returned.
 
-The old release remains live until these prerequisites are met. Keep a database-aware rollback plan: reverting the app alone does not restore the previous registration permissions.
+Remaining follow-ups are hosted leaked-password protection (Pro plan or above), a real user CAPTCHA submission, provider identity-linking collision tests, and the isolated workflow in [STAGING.md](STAGING.md) before future database changes. Full staging was skipped for this release by explicit user instruction.
+
+Keep a database-aware rollback plan: reverting the app alone does not restore the previous registration permissions. Deployment and backup locations are recorded privately in `.deployment/live-deployment.json` and `.deployment/security-backup.json`; those files contain no key values.
 
 References: [Supabase password security](https://supabase.com/docs/guides/auth/password-security), [identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking), [custom OAuth providers](https://supabase.com/docs/guides/auth/custom-oauth-providers).

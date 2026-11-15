@@ -14,8 +14,20 @@ vi.mock('@/lib/rate-limit', () => ({
   rateLimitSubject: mocks.subject,
 }));
 vi.mock('next/headers', () => ({ cookies: vi.fn() }));
-vi.mock('next/server', () => ({ connection: vi.fn() }));
+vi.mock('next/server', () => ({ connection: vi.fn(), after: vi.fn() }));
 import { POST } from '../../src/app/api/auth/route';
+it('logs out only this device so other signed-in devices remain active', async () => {
+  mocks.signOut.mockResolvedValue({ error: null });
+  const result = await POST(
+    new Request('https://site.test/api/auth', {
+      method: 'POST',
+      headers: { Origin: 'https://site.test', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'logout' }),
+    }),
+  );
+  expect(result.status).toBe(200);
+  expect(mocks.signOut).toHaveBeenCalledWith({ scope: 'local' });
+});
 const request = (address: string) =>
   new Request('https://site.test/api/auth', {
     method: 'POST',

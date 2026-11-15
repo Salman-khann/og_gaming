@@ -896,6 +896,114 @@
   font-size: 12px;
   font-weight: 600;
 }
+.customScheduledMatch {
+  border-color: #ff6a12 !important;
+  box-shadow:
+    0 0 14px rgba(255, 106, 18, 0.3),
+    inset 0 0 10px rgba(255, 106, 18, 0.08) !important;
+  transition: all 0.25s ease;
+}
+.customTimingBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255, 106, 18, 0.15);
+  border: 1px solid rgba(255, 106, 18, 0.45);
+  color: #ff8c42;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1px 5px;
+  border-radius: 2px;
+}
+.timingEditButton {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #c4baa9;
+  border-radius: 3px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+.timingEditButton:hover {
+  border-color: #ff6a12;
+  color: #ff6a12;
+  background: rgba(255, 106, 18, 0.1);
+}
+.timingInlineEditor {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 2px 0;
+}
+.timingInputsRow {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+}
+.timingDateInput,
+.timingTimeInput,
+.timingSelect {
+  flex: 1;
+  min-width: 0;
+  background: #0d0c0a;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #eee;
+  padding: 2px 4px;
+  font-size: 10px;
+  border-radius: 2px;
+}
+.timingActionsRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.timingSaveBtn {
+  background: #ff6a12;
+  border: 0;
+  color: #000;
+  font-weight: 700;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.timingSaveBtn:hover {
+  opacity: 0.9;
+}
+.timingResetBtn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ccc;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 2px;
+  cursor: pointer;
+}
+.timingResetBtn:hover {
+  border-color: #ff6a12;
+  color: #ff6a12;
+}
+.timingCancelBtn {
+  background: transparent;
+  border: 0;
+  color: #888;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 2px;
+}
+.timingCancelBtn:hover {
+  color: #eee;
+}
 .matchManager {
   padding-top: 18px;
   border-bottom: 1px solid var(--bracket-line);
@@ -1651,4 +1759,212 @@
   .drawStatus p > span {
     font-size: 11px;
   }
+}
+
+.swapDialog {
+  z-index: 301;
+  color: #eeeae3;
+  background: #121212;
+  border: 1px solid rgba(255, 106, 18, 0.35);
+  box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(255, 106, 18, 0.12);
+  border-radius: 8px;
+  width: min(500px, calc(100vw - 32px));
+  max-width: 500px;
+  padding: 24px;
+}
+.swapDialogHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.swapIconContainer {
+  width: 42px;
+  height: 42px;
+  border-radius: 8px;
+  background: rgba(255, 106, 18, 0.12);
+  border: 1px solid rgba(255, 106, 18, 0.3);
+  color: #ff6a12;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.swapForm {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.swapFieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.swapFieldLabel {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #a3998b;
+  font-weight: 600;
+}
+.swapSideSelector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.swapSideBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 10px 12px;
+  background: #181818;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #d1c8bd;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+.swapSideBtn:hover:not(:disabled) {
+  border-color: rgba(255, 106, 18, 0.5);
+  background: #1f1a16;
+}
+.swapSideBtnActive {
+  background: rgba(255, 106, 18, 0.15) !important;
+  border-color: #ff6a12 !important;
+  color: #fff !important;
+  box-shadow: 0 0 10px rgba(255, 106, 18, 0.2);
+}
+.swapSideBadge {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #ff8c42;
+  font-weight: 700;
+}
+.swapSideBtn strong {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+.swapSelect {
+  width: 100%;
+  padding: 10px 12px;
+  background: #181818;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #eeeae3;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+.swapSelect:focus {
+  border-color: #ff6a12;
+  box-shadow: 0 0 8px rgba(255, 106, 18, 0.3);
+}
+.swapSelect optgroup {
+  color: #ff8c42;
+  background: #141414;
+  font-weight: 600;
+  font-size: 11px;
+}
+.swapSelect option {
+  color: #e5dfd5;
+  background: #1a1a1a;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+.swapPreviewBox {
+  background: rgba(255, 106, 18, 0.07);
+  border: 1px solid rgba(255, 106, 18, 0.22);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #e5dfd5;
+}
+.swapPreviewTitle {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #ff8c42;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.swapPreviewBox p {
+  margin: 0;
+}
+.swapPreviewBox strong {
+  color: #ff9d5c;
+}
+.swapError {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #ff5555;
+  background: rgba(255, 85, 85, 0.1);
+  border: 1px solid rgba(255, 85, 85, 0.25);
+  border-radius: 5px;
+  padding: 8px 12px;
+  font-size: 12px;
+  margin: 0;
+}
+.swapActionsRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+.swapCancelBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+  color: #c4baa9;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.swapCancelBtn:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+}
+.swapConfirmBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #ff6a12;
+  border: 1px solid #ff7a26;
+  border-radius: 5px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 10px rgba(255, 106, 18, 0.3);
+}
+.swapConfirmBtn:hover:not(:disabled) {
+  background: #ff7c2b;
+  box-shadow: 0 4px 14px rgba(255, 106, 18, 0.5);
+  transform: translateY(-1px);
+}
+.swapConfirmBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }

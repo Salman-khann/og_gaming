@@ -15,7 +15,7 @@ try{
  const body={tournament_id:event,team_name:'Temporary guest squad',captain_name:'Temporary captain',email:'captain@test.invalid',phone:'+923000000099',city:'Karachi',accepted_rules:true,players:Array.from({length:5},(_,i)=>({nickname:'Fixture player '+i,game_id:''}))};
  const headers={'Content-Type':'application/json',Origin:base};
  const response=await fetch(base+'/api/tournaments',{method:'POST',headers,body:JSON.stringify(body)});const data=await response.json();assert.equal(response.status,201,data.error);entry=data.registration.id;
- const cookie=response.headers.getSetCookie().find(value=>value.startsWith('og_entry_'));assert.ok(cookie);const ownership=cookie.split(';')[0];
+ const cookie=response.headers.getSetCookie().find(value=>value.startsWith('og_entries='));assert.ok(cookie);const ownership=cookie.split(';')[0];
  const own=await (await fetch(base+'/api/tournaments',{headers:{Cookie:ownership}})).json();assert.ok(own.registrations.some(row=>row.id===entry&&row.can_manage));
  const publicRows=await (await fetch(base+'/api/tournaments')).json();assert.ok(!publicRows.registrations.some(row=>row.id===entry),'Pending guest entry must remain private');
  assert.ok((await anon.from('registration_contacts').select('phone').limit(1)).error);

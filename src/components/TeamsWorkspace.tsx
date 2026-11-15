@@ -13,11 +13,17 @@ export type TeamMember = {
   status: 'invited' | 'accepted';
   expires_at: string;
 };
-export type TeamsData = { teams: TeamSummary[]; members: TeamMember[] };
+export type TeamsData = {
+  teams: TeamSummary[];
+  members: TeamMember[];
+  page?: number;
+  has_more?: boolean;
+};
 export function TeamsWorkspace() {
   const { profile, loading: authLoading } = useAuth();
+  const [page, setPage] = useState(1);
   const { data, error, loading, reload } = useResource<TeamsData>(
-    profile ? '/api/teams?account=' + profile.id : null,
+    profile ? '/api/teams?account=' + profile.id + '&page=' + page : null,
   );
   const [message, setMessage] = useState(''),
     [failure, setFailure] = useState(''),
@@ -29,7 +35,8 @@ export function TeamsWorkspace() {
     try {
       await sendAction('/api/teams', body);
       setMessage('Team updated.');
-      await reload();
+      if (page !== 1) setPage(1);
+      else await reload();
     } catch (error) {
       setFailure(error instanceof Error ? error.message : 'Unable to update team.');
     } finally {
@@ -167,6 +174,25 @@ export function TeamsWorkspace() {
           )}
         </section>
       ))}
+      {(page > 1 || data?.has_more) && (
+        <nav className="flex gap-4 mt-6" aria-label="Team pages">
+          <button
+            className="button secondary"
+            disabled={loading || page === 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            Previous teams
+          </button>
+          <span>Page {page}</span>
+          <button
+            className="button secondary"
+            disabled={loading || !data?.has_more}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            Next teams
+          </button>
+        </nav>
+      )}
     </main>
   );
 }

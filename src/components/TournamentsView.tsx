@@ -1,10 +1,13 @@
 'use client';
 import Link from 'next/link';
+import { RichText } from './RichText';
 import { useEffect, useState } from 'react';
 import type { Tournament, Registration, Profile } from '@/types';
 import { paymentWhatsApp } from '@/lib/whatsapp';
 import { sendAction } from './useResource';
 import { TeamApplicationForm } from './TeamApplicationForm';
+import { EarlyBirdOffer } from './EarlyBirdOffer';
+import { formatEntryFee, tournamentPrice } from '@/lib/tournament-pricing';
 import {
   Dialog,
   DialogContent,
@@ -18,12 +21,14 @@ export function TournamentsView({
   currentProfile,
   onRegistrationCreated,
   detail = false,
+  externalNotice = false,
 }: {
   tournaments: Tournament[];
   registrations: Registration[];
   currentProfile: Profile | null;
-  onRegistrationCreated: () => void;
+  onRegistrationCreated: (message?: string) => void;
   detail?: boolean;
+  externalNotice?: boolean;
 }) {
   const [selected, setSelected] = useState<Tournament | null>(null),
     [busy, setBusy] = useState(false),
@@ -46,7 +51,7 @@ export function TournamentsView({
       await sendAction('/api/tournaments', body);
       setMessage('Team application saved. Organisers will review it.');
       setSelected(null);
-      onRegistrationCreated();
+      onRegistrationCreated('Team application saved. Organisers will review it.');
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Unable to update team.');
     } finally {
@@ -65,12 +70,19 @@ export function TournamentsView({
   }
   return (
     <div className="space-y-6">
+      {currentProfile && (
+        <p className="muted text-sm">
+          Signed in as {currentProfile.account_email || currentProfile.faceit_nickname}
+          {' · Account ' + currentProfile.id.slice(-8)}. Applications follow this account across
+          devices.
+        </p>
+      )}
       {error && !selected && (
         <p className="error-message" role="alert">
           {error}
         </p>
       )}
-      {message && (
+      {message && !externalNotice && (
         <p role="status" className="success-message">
           {message}
         </p>
@@ -101,7 +113,8 @@ export function TournamentsView({
               <h2>
                 <Link href={'/tournaments/' + t.slug}>{t.title}</Link>
               </h2>
-              <p className="muted">{t.description}</p>
+              {t.description && <RichText text={t.description} className="muted" />}
+              {canRegister && <EarlyBirdOffer tournament={t} now={clock} />}
               <dl className="grid grid-cols-2 gap-4 my-6 text-sm">
                 <div>
                   <dt className="muted">Starts (PKT)</dt>
@@ -135,11 +148,7 @@ export function TournamentsView({
                 </div>
                 <div>
                   <dt className="muted">Entry / team</dt>
-                  <dd>
-                    {Number(t.entry_fee) > 0
-                      ? 'PKR ' + Number(t.entry_fee).toLocaleString('en-PK')
-                      : 'Free'}
-                  </dd>
+                  <dd>{formatEntryFee(tournamentPrice(t, clock).amount)}</dd>
                 </div>
                 <div>
                   <dt className="muted">Prize</dt>
@@ -149,7 +158,7 @@ export function TournamentsView({
               {t.rules && (
                 <details className="mb-6">
                   <summary>Tournament rules</summary>
-                  <p className="muted whitespace-pre-wrap">{t.rules}</p>
+                  <RichText text={t.rules} className="muted" />
                 </details>
               )}
               <div className="actions">
@@ -226,6 +235,7 @@ export function TournamentsView({
           </DialogHeader>
           {selected && (
             <TeamApplicationForm
+              now={clock}
               event={selected}
               profile={currentProfile}
               busy={busy}

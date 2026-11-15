@@ -6,6 +6,16 @@ export async function GET(request: Request) {
   await connection();
   try {
     const { db, profile } = await requireProfile();
+    if (
+      profile.role !== 'admin' &&
+      !profile.faceit_id &&
+      (!Number.isFinite(Date.parse(profile.created_at)) ||
+        Date.now() - Date.parse(profile.created_at) < 86400000)
+    )
+      throw new ApiError(
+        'New accounts can contact hosts after 24 hours, or sign in with FACEIT.',
+        403,
+      );
     const id = uuidField(new URL(request.url).searchParams.get('match_id'), 'match');
     await rateLimit(request, 'contact-reveal', 10, 86400, profile.id);
     const { data: match } = await db

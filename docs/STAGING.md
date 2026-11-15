@@ -1,5 +1,7 @@
 # Isolated development and staging
 
+The 25 October 2026 production security release skipped full staging at the user's explicit request. Live verification and backup results are recorded in [REVIEW_REMEDIATION.md](REVIEW_REMEDIATION.md). The workflow below remains recommended for future changes.
+
 Automated SQL tests run in memory using PGlite and never load hosted credentials. Browser tests start a separate Next.js build directory on `127.0.0.1:3119`, inject local placeholder credentials, and mock API/Turnstile traffic. Neither replaces integration tests against full Supabase Auth and Storage.
 
 ## Full local environment

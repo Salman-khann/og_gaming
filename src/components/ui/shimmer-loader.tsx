@@ -47,6 +47,7 @@ type ShimmerLoaderProps = {
   duration?: number;
   tokenTarget?: number;
   showPercent?: boolean;
+  loop?: boolean;
   fontSize?: number;
   paddingY?: number;
   cellPadding?: number;
@@ -60,6 +61,7 @@ export function ShimmerLoader({
   duration = 3000,
   tokenTarget,
   showPercent = true,
+  loop = false,
   fontSize = 14,
   paddingY = 4,
   cellPadding = 2,
@@ -109,7 +111,7 @@ export function ShimmerLoader({
         return;
       }
       last = timestamp;
-      const progress = Math.min(Math.max(0, elapsed / total), 1),
+      const progress = loop ? (elapsed % total) / total : Math.min(Math.max(0, elapsed / total), 1),
         frame = elapsed / frameMs;
       const label =
         safeLabels[Math.min(safeLabels.length - 1, Math.floor(progress * safeLabels.length))];
@@ -137,7 +139,7 @@ export function ShimmerLoader({
       }
       if (tokens.current && tokenTarget !== undefined)
         tokens.current.textContent = (progress * tokenTarget).toFixed(1) + 'k';
-      if (progress < 1) raf = requestAnimationFrame(draw);
+      if (loop || progress < 1) raf = requestAnimationFrame(draw);
       else if (!done) {
         done = true;
         complete.current?.();
@@ -145,7 +147,7 @@ export function ShimmerLoader({
     }
     raf = requestAnimationFrame(draw);
     return () => cancelAnimationFrame(raf);
-  }, [duration, barWidth, longest, padding, safeLabels, safeIcons, showPercent, tokenTarget]);
+  }, [duration, barWidth, longest, padding, safeLabels, safeIcons, showPercent, tokenTarget, loop]);
   return (
     <div className={styles.loader} style={{ fontSize }} role="status" aria-label={safeLabels[0]}>
       <span

@@ -1,14 +1,16 @@
 import assert from 'node:assert/strict';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
-import { it, vi } from 'vitest';
+import { beforeEach, it, vi } from 'vitest';
 const state = vi.hoisted(() => ({ db: undefined as unknown as SupabaseClient }));
 vi.mock('@/lib/supabase/admin', () => ({ createAdminClient: () => state.db }));
 vi.mock('next/server', () => ({ connection: async () => {}, after: vi.fn() }));
+vi.mock('@/lib/rate-limit', () => ({ rateLimit: vi.fn() }));
 import { GET } from '../../src/app/api/players/route';
 const accountId = '11111111-1111-4111-8111-111111111111';
 const faceitId = '22222222-2222-4222-8222-222222222222';
 const profile = {
   id: accountId,
+  public_slug: 'verifiedplayer',
   faceit_id: faceitId,
   faceit_nickname: 'VerifiedPlayer',
   role: 'player',
@@ -27,6 +29,9 @@ const stats = {
   headshot_rate: 50,
 };
 const filters: { table: string | undefined; filter: string | null }[] = [];
+beforeEach(() => {
+  filters.length = 0;
+});
 // Exercise the real Supabase query encoder, mocking only the HTTP boundary.
 const db = createClient('https://database.test', 'test-only', {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -36,10 +41,15 @@ const db = createClient('https://database.test', 'test-only', {
         typeof request === 'string' ? request : request instanceof URL ? request.href : request.url,
       );
       const table = url.pathname.split('/').at(-1);
+      if (table === 'registrations') {
+        assert.ok(url.searchParams.get('select')?.includes('tournaments!inner'));
+        assert.equal(url.searchParams.get('tournament.status'), 'neq.draft');
+      }
       if (table === 'profiles') {
         const found =
           url.searchParams.get('id') === 'eq.' + accountId ||
-          url.searchParams.get('faceit_id') === 'eq.' + faceitId;
+          url.searchParams.get('faceit_id') === 'eq.' + faceitId ||
+          url.searchParams.get('public_slug') === 'eq.verifiedplayer';
         return Response.json(found ? [profile] : []);
       }
       if (table === 'faceit_leaderboard')
@@ -56,6 +66,13 @@ const db = createClient('https://database.test', 'test-only', {
       return Response.json([]);
     },
   },
+});
+it('loads readable profile slugs and rejects unknown or malformed names', async () => {
+  const response = await GET(new Request('https://og.test/api/players?slug=verifiedplayer'));
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).player.public_slug, 'verifiedplayer');
+  for (const slug of ['missing-player', 'bad%20name'])
+    assert.equal((await GET(new Request('https://og.test/api/players?slug=' + slug))).status, 404);
 });
 state.db = db;
 it('encodes private profile history filters correctly for account and FACEIT links', async () => {

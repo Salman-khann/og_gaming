@@ -2,7 +2,7 @@ import 'server-only';
 import { createHmac } from 'node:crypto';
 import { createAdminClient } from './supabase/admin';
 import { ApiError } from './api-input';
-import { trustedClientAddress } from './request-address';
+import { trustedClientAddress, clientNetwork } from './request-address';
 
 export async function rateLimitSubject(
   purpose: string,
@@ -41,11 +41,20 @@ export async function rateLimit(
   const address = trustedClientAddress(request);
   if (!address && process.env.NODE_ENV === 'production')
     throw new ApiError('Request protection is unavailable. Please try again shortly.', 503);
-  // Keep the network cap alongside the account cap so new accounts cannot bypass it.
+  // Shared venue Wi-Fi and carrier NAT need a coarser network ceiling. Subject
+  // and account limits remain unchanged; guest mutations also verify CAPTCHA.
+  const networkCaps: Record<string, number> = {
+    signup: 100,
+    'password-login': 300,
+    'match-post': 100,
+    registration: 100,
+    'contact-reveal': 1000,
+    'player-read': 300,
+  };
   await rateLimitSubject(
     purpose + ':ip',
-    address || 'local-development',
-    identity ? Math.max(20, limit * 3) : limit,
+    address ? clientNetwork(address) : 'local-development',
+    networkCaps[purpose] || (identity ? Math.max(100, limit * 10) : limit),
     seconds,
   );
   if (identity) await rateLimitSubject(purpose + ':account', identity, limit, seconds);

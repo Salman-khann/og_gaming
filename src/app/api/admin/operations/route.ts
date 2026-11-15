@@ -1,4 +1,7 @@
 import { connection } from 'next/server';
+import { dbError } from '@/lib/api-input';
+import { rateLimit } from '@/lib/rate-limit';
+import { verifyAdminPassword } from '@/lib/bracket-reset-password';
 import {
   apiError,
   ApiError,
@@ -13,10 +16,11 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { communityAction } from '@/lib/community';
 import { dispatchAfterResponse } from '@/lib/notifications';
 import { youtubeEmbed } from '@/lib/community-media';
+import { registrationReviewFlags } from '@/lib/registration-review';
 export async function GET(request: Request) {
   await connection();
   try {
-    await requireProfile(true);
+    const { profile } = await requireProfile(true);
     const db = createAdminClient();
     const params = new URL(request.url).searchParams,
       section = params.get('section') || 'players';
@@ -53,6 +57,7 @@ export async function GET(request: Request) {
           'id,team_name,status,checked_in,payment_status,created_at,roster_details,tournament:tournaments(title)',
           { count: 'exact' },
         )
+        .is('cancelled_at', null)
         .order('created_at', { ascending: false })
         .order('id')
         .range(from, from + 24);
@@ -60,8 +65,16 @@ export async function GET(request: Request) {
       if (search) query = query.ilike('team_name', '%' + search.replace(/[\\%_]/g, '') + '%');
       const { data, error, count } = await query;
       if (error) throw error;
+      const flags = await registrationReviewFlags(
+        profile.id,
+        (data || []).map((row) => row.id),
+      );
       return Response.json(
-        { items: data || [], page, total: count },
+        {
+          items: (data || []).map((row) => ({ ...row, review_warnings: flags[row.id] || [] })),
+          page,
+          total: count,
+        },
         { headers: { 'Cache-Control': 'no-store' } },
       );
     }
@@ -131,9 +144,18 @@ export async function POST(request: Request) {
   try {
     sameOrigin(request);
     const body = await jsonObject(request);
-    const { profile } = await requireProfile(true);
+    const { profile, db: session } = await requireProfile(true);
     const db = createAdminClient();
-    if (body.action === 'set_role')
+    if (body.action === 'cancel_registration') {
+      await rateLimit(request, 'registration-cancel', 5, 300, profile.id);
+      const entryId = uuidField(body.registration_id, 'registration');
+      await verifyAdminPassword(session, profile.id, body.password);
+      const { error } = await db.rpc('cancel_team_registration', {
+        actor_id: profile.id,
+        entry_id: entryId,
+      });
+      if (error) throw dbError(error);
+    } else if (body.action === 'set_role')
       await communityAction(profile.id, 'set_role', {
         user_id: uuidField(body.user_id, 'player'),
         role: textField(body.role, 'role', 10),

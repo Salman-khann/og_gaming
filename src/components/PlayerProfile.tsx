@@ -39,7 +39,9 @@ export type PlayerProfileData = {
 export function PlayerProfile({ playerId }: { playerId: string }) {
   const { profile } = useAuth();
   const { data, error, loading, reload } = useResource<PlayerProfileData>(
-    '/api/players?player_id=' + encodeURIComponent(playerId),
+    '/api/players?' +
+      (/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(playerId) ? 'player_id=' : 'slug=') +
+      encodeURIComponent(playerId),
   );
   const player = data?.player,
     stats = data?.stats;

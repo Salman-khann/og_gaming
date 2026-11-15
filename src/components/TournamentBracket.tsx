@@ -31,6 +31,7 @@ import { BracketPairingsEditor } from './BracketPairingsEditor';
 import { BracketScheduleEditor } from './BracketScheduleEditor';
 import { matchTimeLabel, type BracketSchedule } from '@/lib/bracket-schedule';
 import { BracketResetDialog } from './BracketResetDialog';
+import { BracketTeamSwapDialog } from './BracketTeamSwapDialog';
 const laneOf = (m: TournamentMatch) =>
   ['final', 'reset'].includes(m.bracket) ? 'finals' : m.bracket || 'winners';
 const laneNames: Record<string, string> = {
@@ -66,6 +67,7 @@ export function TournamentBracket({
   const [expandedLane, setExpandedLane] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [scorecardId, setScorecardId] = useState<string | null>(null);
+  const [swapMatchId, setSwapMatchId] = useState<string | null>(null);
   const expandedRef = useRef<HTMLElement>(null);
   const expandedViewport = useRef<HTMLDivElement>(null);
   const rootRef = useRef<HTMLElement>(null);
@@ -175,6 +177,9 @@ export function TournamentBracket({
       .toUpperCase();
   const scorecard = matches.find(
     (match) => match.id === scorecardId && match.status === 'completed',
+  );
+  const swapMatch = matches.find(
+    (match) => match.id === swapMatchId && match.status !== 'completed',
   );
   const pairingsLocked = matches.some(
     (match) =>
@@ -657,6 +662,15 @@ export function TournamentBracket({
                             if (await act('PATCH', { match_id: m.id, score_a: a, score_b: b }))
                               setScorecardId(m.id);
                           }}
+                          onSetTiming={async (matchId, scheduledAt) => {
+                            await act('PATCH', {
+                              action: 'set_match_timing',
+                              tournament_id: tournamentId,
+                              match_id: matchId,
+                              scheduled_at: scheduledAt,
+                            });
+                          }}
+                          onSwapTeam={(matchId) => setSwapMatchId(matchId)}
                         />
                       ))}
                     </div>
@@ -680,6 +694,22 @@ export function TournamentBracket({
               teamB={name(scorecard.team_b)}
               admin={admin}
               onClose={() => setScorecardId(null)}
+            />
+          )}
+          {swapMatch && (
+            <BracketTeamSwapDialog
+              key={swapMatch.id}
+              match={swapMatch}
+              matches={matches}
+              teams={data?.eligibleTeams || data?.teams || []}
+              name={name}
+              busy={busy}
+              onClose={() => setSwapMatchId(null)}
+              onSwap={async (payload) => {
+                if (await act('PATCH', payload)) {
+                  setSwapMatchId(null);
+                }
+              }}
             />
           )}
           <footer className={styles.footer}>

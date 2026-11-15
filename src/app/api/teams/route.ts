@@ -7,42 +7,20 @@ import {
   sameOrigin,
   textField,
   uuidField,
+  integer,
+  dbError,
 } from '@/lib/api';
 import { communityAction } from '@/lib/community';
 import { verifyFaceitPlayer, FaceitError } from '@/lib/faceit';
 import { rateLimit } from '@/lib/rate-limit';
-export async function GET() {
+export async function GET(request: Request) {
   await connection();
   try {
-    const { db, profile } = await requireProfile();
-    const [owned, members] = await Promise.all([
-      db
-        .from('teams')
-        .select('id,name,captain_id,created_at')
-        .eq('captain_id', profile.id)
-        .limit(5),
-      db.from('team_members').select('*').order('created_at').limit(500),
-    ]);
-    if (owned.error || members.error) throw new ApiError('Unable to load teams.', 503);
-    const ids = [
-      ...new Set([
-        ...(owned.data || []).map((team) => team.id),
-        ...(members.data || []).map((member) => member.team_id),
-      ]),
-    ];
-    const teams = ids.length
-      ? await db
-          .from('teams')
-          .select('id,name,captain_id,created_at')
-          .in('id', ids)
-          .order('created_at', { ascending: false })
-          .limit(500)
-      : { data: [], error: null };
-    if (teams.error) throw teams.error;
-    return Response.json(
-      { teams: teams.data, members: members.data },
-      { headers: { 'Cache-Control': 'no-store' } },
-    );
+    const { db } = await requireProfile();
+    const page = integer(new URL(request.url).searchParams.get('page') || 1, 1, 10000);
+    const result = await db.rpc('read_my_teams', { page_number: page, page_size: 25 });
+    if (result.error) throw dbError(result.error);
+    return Response.json(result.data, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     return apiError(error);
   }
@@ -63,12 +41,8 @@ export async function POST(request: Request) {
       try {
         player = await verifyFaceitPlayer(textField(body.nickname, 'FACEIT player', 200));
       } catch (error) {
-        throw new ApiError(
-          error instanceof FaceitError
-            ? error.message
-            : 'Enter a valid FACEIT nickname or profile URL.',
-          error instanceof FaceitError ? error.status : 400,
-        );
+        if (error instanceof FaceitError) throw new ApiError(error.message, error.status);
+        throw error;
       }
       payload = {
         team_id: uuidField(body.team_id, 'team'),

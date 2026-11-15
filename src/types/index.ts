@@ -2,6 +2,8 @@ export type UserRole = 'player' | 'admin' | 'banned';
 
 export interface Profile {
   id: string;
+  account_email?: string | null;
+  public_slug?: string;
   faceit_id?: string | null;
   faceit_nickname: string;
   faceit_avatar_url?: string | null;
@@ -67,6 +69,8 @@ export interface Tournament {
   status: TournamentStatus;
   prize_pool: string;
   entry_fee: number;
+  early_bird_fee?: number | null;
+  early_bird_deadline?: string | null;
   payment_instructions: string;
   rules: string;
   registrations_count?: number;
@@ -85,6 +89,7 @@ export interface RegistrationRosterMember {
 export type RegistrationStatus = 'pending' | 'approved' | 'rejected';
 
 export interface Registration {
+  review_warnings?: string[];
   can_manage?: boolean;
   contact?: {
     captain_name: string;
@@ -142,4 +147,5 @@ export interface TournamentMatch {
   outcome_a?: 'winner' | 'loser';
   outcome_b?: 'winner' | 'loser';
   scheduled_at?: string | null;
+  is_custom_schedule?: boolean;
 }

@@ -45,7 +45,7 @@ await assert.rejects(rateLimit(request('192.0.2.1'), 'guest', 1, 300), error => 
 await rateLimit(request('192.0.2.2'), 'guest', 1, 300);
 await rateLimit(request('192.0.2.1'), 'account', 1, 60, 'player-1');
 await assert.rejects(rateLimit(request('192.0.2.2'), 'account', 1, 60, 'player-1'), error => error.status === 429);
-for (let i = 0; i < 20; i++) await rateLimit(request('192.0.2.1'), 'multi-account', 1, 60, 'account-' + i);
+for (let i = 0; i < 100; i++) await rateLimit(request('192.0.2.1'), 'multi-account', 1, 60, 'account-' + i);
 await assert.rejects(rateLimit(request('192.0.2.1'), 'multi-account', 1, 60, 'new-account'), error => error.status === 429);
 await rateLimitSubject('phone', '+923001234567', 1, 3600);
 await assert.rejects(rateLimitSubject('phone', '+923001234567', 1, 3600), error => error.status === 429);

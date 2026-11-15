@@ -1,13 +1,16 @@
 ﻿'use client';
 import Link from 'next/link';
 import { useState } from 'react';
+import { RegistrationCancelButton } from './RegistrationCancelButton';
 import { useAppendPages } from './useAppendPages';
 import { useResource, sendAction } from './useResource';
 import { AdminAnalytics } from './AdminAnalytics';
+import { RegistrationWarnings } from './RegistrationWarnings';
 import type { AdminReport } from '@/types/admin';
 import type { Tournament } from '@/types';
 import styles from './AdminDashboard.module.css';
 type Row = {
+  review_warnings?: string[];
   id: string;
   faceit_nickname?: string;
   faceit_id?: string;
@@ -119,7 +122,10 @@ export function OperationsPanel({ tournamentContent }: { tournamentContent: Reac
           '&kind=' +
           kind,
   );
-  const items = useAppendPages(scope, page, data?.items);
+  const [cancelled, setCancelled] = useState<string[]>([]);
+  const items = useAppendPages(scope, page, data?.items).filter(
+    (row) => !(section === 'teams' && source === 'entries' && cancelled.includes(row.id)),
+  );
   const [failure, setFailure] = useState(''),
     [message, setMessage] = useState(''),
     [busy, setBusy] = useState(false);
@@ -498,6 +504,7 @@ export function OperationsPanel({ tournamentContent }: { tournamentContent: Reac
                     </>
                   ) : section === 'teams' ? (
                     <>
+                      <RegistrationWarnings warnings={row.review_warnings} />
                       <p className="muted">
                         {source === 'entries' ? row.tournament?.title : 'FACEIT squad'} · Created{' '}
                         {date(row.created_at)}
@@ -507,6 +514,15 @@ export function OperationsPanel({ tournamentContent }: { tournamentContent: Reac
                           <span className={styles.badge} data-status={row.status}>
                             {row.status}
                           </span>
+                          <RegistrationCancelButton
+                            id={row.id}
+                            name={row.team_name || 'this team'}
+                            onCancelled={async () => {
+                              setCancelled((previous) => [...previous, row.id]);
+                              setMessage('Registration cancelled.');
+                              await reload();
+                            }}
+                          />
                           <span className={styles.badge}>
                             {row.payment_status === 'verified'
                               ? 'Payment verified'

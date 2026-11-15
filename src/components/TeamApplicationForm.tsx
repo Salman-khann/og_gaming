@@ -2,18 +2,22 @@
 import type { Profile, Tournament } from '@/types';
 import { TurnstileChallenge } from './TurnstileChallenge';
 import { BotTrap } from './BotTrap';
+import { EarlyBirdOffer } from './EarlyBirdOffer';
+import { formatEntryFee, tournamentPrice } from '@/lib/tournament-pricing';
 export function TeamApplicationForm({
   event,
   profile,
   busy,
   error,
   onSubmit,
+  now = null,
 }: {
   event: Tournament;
   profile: Profile | null;
   busy: boolean;
   error: string;
   onSubmit: (body: unknown) => Promise<void>;
+  now?: number | null;
 }) {
   return (
     <form
@@ -40,6 +44,7 @@ export function TeamApplicationForm({
       }}
     >
       <BotTrap />
+      <EarlyBirdOffer tournament={event} now={now} />
       <TurnstileChallenge key={busy ? 'submitting' : 'ready'} action="registration" />
       <fieldset className="field-grid">
         <legend>Team &amp; captain</legend>
@@ -63,7 +68,14 @@ export function TeamApplicationForm({
         </label>
         <label className="field">
           Captain email
-          <input name="email" required type="email" maxLength={254} autoComplete="email" />
+          <input
+            name="email"
+            required
+            type="email"
+            maxLength={254}
+            autoComplete="email"
+            defaultValue={profile?.account_email || ''}
+          />
         </label>
         <label className="field">
           City (optional)
@@ -99,15 +111,20 @@ export function TeamApplicationForm({
         team and agree to the tournament rules.
       </label>
       <p className="muted">
-        {Number(event.entry_fee) > 0
-          ? `Entry fee: PKR ${Number(event.entry_fee).toLocaleString('en-PK')} per team. Staff verify payment before approval.`
-          : 'Free team entry.'}{' '}
-        Contact details are visible only to organisers.
+        Entry fee: {formatEntryFee(tournamentPrice(event, now).amount)} per team. The fee is set
+        when your application is submitted. Staff verify paid entries before approval. Contact
+        details are visible only to organisers.
       </p>
       {!profile && (
         <p className="muted">
-          Keep this browser to view your application, or sign in before submitting to link it to
-          your account.
+          This browser remembers your 20 most recent applications. Sign in before submitting to keep
+          applications linked to your account.
+        </p>
+      )}
+      {profile && (
+        <p className="muted">
+          This application will be saved to your signed-in account on every device. Use that account
+          email for the captain.
         </p>
       )}
       {error && (

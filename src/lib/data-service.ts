@@ -1,8 +1,10 @@
 import { createClient } from './supabase/server';
+import { verifiedUser } from './auth-session';
 import { ApiError } from './api';
 import type { MatchRequest, Tournament, Registration } from '@/types';
 import { guestApplications } from './team-applications';
 import { createAdminClient } from './supabase/admin';
+import { registrationReviewFlags } from './registration-review';
 
 function queryError(error: { code?: string; message?: string } | null) {
   if (!error) return;
@@ -18,6 +20,7 @@ export async function readArena(
   page = 1,
   registrationPage = 1,
   adminView = false,
+  adminActorId?: string,
 ) {
   const db = await createClient();
   if (kind === 'matches') {
@@ -54,6 +57,7 @@ export async function readArena(
           '*, tournament:tournaments(title),captain:profiles!registrations_captain_id_fkey(id,faceit_nickname,faceit_level,faceit_elo)',
           { count: 'exact' },
         )
+        .is('cancelled_at', null)
     : db
         .from('public_registrations')
         .select('id,tournament_id,team_name,status,roster_details,created_at', { count: 'exact' });
@@ -84,6 +88,11 @@ export async function readArena(
     }
   }
   if (adminView && registrations.length) {
+    if (!adminActorId) throw new ApiError('Administrator access required.', 403);
+    const flags = await registrationReviewFlags(
+      adminActorId,
+      registrations.map((r) => r.id),
+    );
     const contacts = await createAdminClient()
       .from('registration_contacts')
       .select('registration_id,captain_name,email,phone,city,notes')
@@ -92,18 +101,19 @@ export async function readArena(
         registrations.map((r) => r.id),
       );
     queryError(contacts.error);
-    for (const entry of registrations)
+    for (const entry of registrations) {
       entry.contact = contacts.data?.find((c) => c.registration_id === entry.id) || null;
+      entry.review_warnings = flags[entry.id] || [];
+    }
   }
   if (!adminView && t.data?.length) {
-    const {
-      data: { user },
-    } = await db.auth.getUser();
+    const user = await verifiedUser(db);
     if (user) {
       const own = await db
         .from('registrations')
         .select('*')
         .eq('captain_id', user.id)
+        .is('cancelled_at', null)
         .in(
           'tournament_id',
           t.data.map((event) => event.id),
@@ -111,9 +121,10 @@ export async function readArena(
         .limit(25);
       queryError(own.error);
       for (const registration of own.data || []) {
+        const owned = { ...registration, can_manage: true } as Registration;
         const at = registrations.findIndex((row) => row.id === registration.id);
-        if (at >= 0) registrations[at] = registration as Registration;
-        else registrations.push(registration as Registration);
+        if (at >= 0) registrations[at] = owned;
+        else registrations.push(owned);
       }
     }
   }

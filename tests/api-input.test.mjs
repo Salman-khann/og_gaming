@@ -15,6 +15,6 @@ assert.equal(money('1250.50'),1250.5);assert.equal(money(0),0);
 assert.equal(uuidField('12345678-1234-1234-1234-123456789abc', 'match'), '12345678-1234-1234-1234-123456789abc');
 for (const id of ['', null, 'not-a-uuid', '12345678-1234-1234-1234-123456789abz']) assert.throws(() => uuidField(id, 'match'));
 sameOrigin(new Request('https://og.test/api', { headers: { origin: 'https://og.test' } }));
-sameOrigin(new Request('https://og.test/api'));
+assert.throws(() => sameOrigin(new Request('https://og.test/api')), error => error.status === 403);
 for (const headers of [{ origin: 'https://evil.test' }, { origin: 'null' }, { 'sec-fetch-site': 'cross-site' }]) assert.throws(() => sameOrigin(new Request('https://og.test/api', { headers })), error => error.status === 403);
 console.log('API regression tests passed: malformed bodies, integer coercion, invalid IDs and cross-site mutations rejected.');

@@ -23,9 +23,9 @@ export function HomeArena() {
         <Arena embedded />
       ) : (
         <div className="wrap section-heading">
-          <h2>Find your next match</h2>
-          <Link className="button" href="/matches">
-            Browse 5v5 matches
+          <h2>Find your next tournament</h2>
+          <Link className="button" href="/tournaments">
+            Browse tournaments
           </Link>
         </div>
       )}

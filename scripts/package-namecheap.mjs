@@ -25,6 +25,8 @@ for (const name of readdirSync(join(root, '.next'))) {
   if (name === 'BUILD_ID' || name.endsWith('.json') && !name.endsWith('.nft.json') && name !== 'oggaming-build-origin.json') cpSync(join(root, '.next', name), join(stage, '.next', name));
 }
 cpSync(join(root, 'server.js'), join(stage, 'server.js'));
+mkdirSync(join(stage, 'scripts'), { recursive: true });
+cpSync(join(root, 'scripts/run-worker.mjs'), join(stage, 'scripts/run-worker.mjs'));
 let config = ts.transpileModule(readFileSync(join(root, 'next.config.ts'), 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
 }).outputText;

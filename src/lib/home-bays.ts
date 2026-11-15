@@ -21,13 +21,7 @@ export const BAYS_DATA: BayDetails[] = [
       'Chilled Sub-Zero Air Conditioning',
       'Mechanical Keyboards & High-DPI Mice',
     ],
-    games: [
-      'Counter-Strike 2',
-      'Valorant',
-      'Apex Legends',
-      'GTA V / FiveM',
-      'Call of Duty: Warzone',
-    ],
+    games: ['Counter-Strike 2', 'Valorant'],
     status: 'live',
   },
   {
@@ -42,7 +36,7 @@ export const BAYS_DATA: BayDetails[] = [
       'Chilled Sub-Zero Air Conditioning',
       'Mechanical Keyboards & High-DPI Mice',
     ],
-    games: ['Counter-Strike 2', 'Valorant', 'Apex Legends', 'GTA V / FiveM', 'Dota 2'],
+    games: ['Counter-Strike 2', 'Valorant'],
     status: 'live',
   },
   {
@@ -57,7 +51,7 @@ export const BAYS_DATA: BayDetails[] = [
       'Chilled Sub-Zero Air Conditioning',
       'Mechanical Keyboards & High-DPI Mice',
     ],
-    games: ['Counter-Strike 2', 'Valorant', 'Apex Legends', 'Fortnite', 'Overwatch 2'],
+    games: ['Counter-Strike 2', 'Valorant'],
     status: 'live',
   },
   {
@@ -71,7 +65,7 @@ export const BAYS_DATA: BayDetails[] = [
       'Private Team Sound Dampening',
       'Dedicated Coach & Analyst Screen',
     ],
-    games: ['CS2 Premier Ready', 'Bootcamp Optimized'],
+    games: ['Counter-Strike 2', 'Valorant'],
     status: 'soon',
   },
   {
@@ -86,7 +80,7 @@ export const BAYS_DATA: BayDetails[] = [
       'Plush Ultra-Comfort Bean Bags',
       'Chilled High-Output AC',
     ],
-    games: ['EA Sports FC 25 / FIFA', 'Tekken 8', 'Mortal Kombat 1', 'NBA 2K25', 'Spider-Man 2'],
+    games: ['EA Sports FC 26/ FIFA', 'Tekken 8', 'Mortal Kombat II'],
     status: 'live',
   },
 ];

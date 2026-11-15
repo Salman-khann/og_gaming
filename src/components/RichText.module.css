@@ -1,0 +1,141 @@
+.content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.content > :first-child {
+  margin-top: 0;
+}
+.content > :last-child {
+  margin-bottom: 0;
+}
+.content p {
+  margin: 0.65em 0;
+  white-space: pre-line;
+}
+.content h1,
+.content h2,
+.content h3,
+.content h4,
+.content h5,
+.content h6 {
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 1em 0 0.45em;
+}
+.content h1 {
+  font-size: 1.5em;
+}
+.content h2 {
+  font-size: 1.3em;
+}
+.content h3 {
+  font-size: 1.15em;
+}
+.content ul,
+.content ol {
+  padding-left: 1.6em;
+  margin: 0.7em 0;
+}
+.content ul {
+  list-style: disc;
+}
+.content ol {
+  list-style: decimal;
+}
+.content li {
+  margin: 0.25em 0;
+}
+.content strong {
+  font-weight: 700;
+}
+.content em {
+  font-style: italic;
+}
+.content a {
+  color: #ffac6a;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.content blockquote {
+  margin: 0.8em 0;
+  padding: 0.2em 1em;
+  border-left: 3px solid #b35e29;
+  color: #bfb9b2;
+}
+.content pre {
+  max-width: 100%;
+  overflow: auto;
+  padding: 12px;
+  background: #171717;
+  border-radius: 8px;
+}
+.content code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+  background: #202020;
+  padding: 0.12em 0.25em;
+  border-radius: 3px;
+}
+.content pre code {
+  padding: 0;
+  background: none;
+}
+.content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+.content th,
+.content td {
+  border: 1px solid #39312a;
+  padding: 8px 12px;
+  text-align: left;
+}
+.content th {
+  font-weight: 700;
+  background: #211b16;
+}
+.content hr {
+  border: 0;
+  border-top: 1px solid #39312a;
+  margin: 1em 0;
+}
+.content img {
+  max-width: 100%;
+  height: auto;
+}
+.editor {
+  min-width: 0;
+}
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0;
+}
+.toolbar button {
+  padding: 5px 9px;
+  border: 1px solid #4a3b2f;
+  border-radius: 5px;
+  background: #191613;
+  color: #e6ddd6;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.toolbar button:hover,
+.toolbar button[aria-pressed='true'] {
+  background: #45301f;
+}
+.toolbar button:focus-visible {
+  outline: 2px solid #e3853c;
+  outline-offset: 2px;
+}
+.preview {
+  min-height: 130px;
+  border: 1px solid #45372b;
+  padding: 14px;
+  border-radius: 8px;
+}
