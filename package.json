@@ -60,7 +60,7 @@
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.7",
     "lightningcss": "1.33.0",
-    "prettier": "3.9.10",
+    "prettier": "3.10.1",
     "repomix": "^1.18.1",
     "shadcn": "4.21.3",
     "supabase": "2.122.0",
