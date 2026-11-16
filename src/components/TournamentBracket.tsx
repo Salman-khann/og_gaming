@@ -167,9 +167,9 @@ export function TournamentBracket({
     1,
     double ? entrants.length * 2 - 2 + (resetRequired ? 1 : 0) : entrants.length - 1,
   );
-  const remaining = entrants.filter(
-    (team) => teamLosses(team.id, matches) < (double ? 2 : 1),
-  ).length;
+  const remaining = champion
+    ? 1
+    : entrants.filter((team) => teamLosses(team.id, matches) < (double ? 2 : 1)).length;
   const initials = (id: string | null) =>
     name(id)
       .replace(/^Test /, '')
@@ -480,7 +480,9 @@ export function TournamentBracket({
                 <p>
                   First to two maps wins. Byes advance automatically.
                   {double
-                    ? ' The winners finalist faces the losers finalist. If the losers finalist wins, a second BO3 decides the champion.'
+                    ? hasResetMatch
+                      ? ' The winners finalist faces the losers finalist. If the losers finalist wins, a second BO3 decides the champion.'
+                      : ' The winners finalist faces the losers finalist in the Grand Final to decide the champion.'
                     : ' Winners advance through each round to the final.'}
                 </p>
               </details>
@@ -497,11 +499,14 @@ export function TournamentBracket({
                         <span>
                           {team.id === champion
                             ? 'Champion'
-                            : losses >= (double ? 2 : 1)
-                              ? 'Eliminated'
-                              : losses
-                                ? 'Losers bracket'
-                                : 'Undefeated'}{' '}
+                            : champion &&
+                              (grandFinal?.team_a === team.id || grandFinal?.team_b === team.id)
+                              ? 'Runner-up'
+                              : losses >= (double ? 2 : 1)
+                                ? 'Eliminated'
+                                : losses
+                                  ? 'Losers bracket'
+                                  : 'Undefeated'}{' '}
                           &middot; {losses} {losses === 1 ? 'loss' : 'losses'}
                         </span>
                       </li>

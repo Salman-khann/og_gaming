@@ -251,6 +251,9 @@ export async function PATCH(request: Request) {
       if (error) throw dbError(error);
 
       for (const m of matches || []) {
+        if (m.source_a || m.source_b) {
+          throw new ApiError('Teams can only be swapped in opening round matches.', 400);
+        }
         if (m.status === 'completed' || m.score_a != null || m.score_b != null) {
           throw new ApiError(
             'Cannot swap a team that is already playing or has finished a match.',
@@ -283,6 +286,18 @@ export async function PATCH(request: Request) {
           if (m.team_b === teamAId) updates.team_b = teamBId;
           else if (m.team_b === teamBId) updates.team_b = teamAId;
 
+          if (m.status === 'bye') {
+            const nextWinner =
+              m.team_a === teamAId
+                ? teamBId
+                : m.team_a === teamBId
+                  ? teamAId
+                  : m.team_b === teamAId
+                    ? teamBId
+                    : teamAId;
+            updates.winner_id = nextWinner;
+          }
+
           if (Object.keys(updates).length > 0) {
             const update = await admin.from('tournament_matches').update(updates).eq('id', m.id);
             if (update.error) throw dbError(update.error);
@@ -308,6 +323,12 @@ export async function PATCH(request: Request) {
         .eq('tournament_id', eventId)
         .single();
       if (matchError || !match) throw new ApiError('Match not found.', 404);
+      if (match.source_a || match.source_b) {
+        throw new ApiError(
+          'Teams can only be replaced in opening round matches. For later rounds, enter a walkover result.',
+          400,
+        );
+      }
       if (match.status === 'completed' || match.score_a != null || match.score_b != null) {
         throw new ApiError('Cannot replace a team in a completed or in-progress match.', 400);
       }

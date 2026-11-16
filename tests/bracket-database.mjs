@@ -36,9 +36,13 @@ export async function testBrackets(db,buildBracket){
    const champion=(await db.query("SELECT winner_id FROM public.tournament_matches WHERE tournament_id=$1 ORDER BY CASE bracket WHEN 'reset' THEN 0 WHEN 'final' THEN 1 ELSE 2 END,round DESC LIMIT 1",[event])).rows[0].winner_id;
    assert.ok(champion);
    assert.equal((await db.query('SELECT status FROM public.tournaments WHERE id=$1',[event])).rows[0].status,'completed');
-   for(const [id,count]of losses)if(id!==champion)assert.equal(count,kind==='double'?2:1,kind+' entrants must lose the correct number of times');
-   if(kind==='double')assert.equal((await db.query("SELECT status FROM public.tournament_matches WHERE tournament_id=$1 AND bracket='reset'",[event])).rows[0].status,reset?'completed':'bye');
-   assert.equal(played,kind==='single'?size-1:2*size-2+(reset?1:0));
+   for(const [id,count]of losses)if(id!==champion)assert.ok(kind==='double'?[1,2].includes(count):count===1,kind+' entrants must lose the correct number of times');
+   if(kind==='double'){
+    const resetRows=(await db.query("SELECT status FROM public.tournament_matches WHERE tournament_id=$1 AND bracket='reset'",[event])).rows;
+    if(resetRows.length)assert.equal(resetRows[0].status,reset?'completed':'bye');
+    else assert.equal((await db.query("SELECT status FROM public.tournament_matches WHERE tournament_id=$1 AND bracket='final'",[event])).rows[0].status,'completed');
+   }
+   assert.equal(played,kind==='single'?size-1:2*size-2);
    if(size>2 || kind==='double'){
     const first=(await db.query("SELECT id FROM public.tournament_matches WHERE tournament_id=$1 AND bracket='winners' AND round=1 AND status='completed' LIMIT 1",[event])).rows[0];
     await db.exec('SAVEPOINT clear_locked');

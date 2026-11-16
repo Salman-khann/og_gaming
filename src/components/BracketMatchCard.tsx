@@ -165,7 +165,12 @@ export function BracketMatchCard({
             </div>
             {admin && m.status !== 'bye' && (
               <div className="flex items-center gap-1">
-                {m.status !== 'completed' && !locked && (m.team_a || m.team_b) && onSwapTeam && (
+                {m.status !== 'completed' &&
+                  !locked &&
+                  !m.source_a &&
+                  !m.source_b &&
+                  (m.team_a || m.team_b) &&
+                  onSwapTeam && (
                   <button
                     type="button"
                     className={styles.timingEditButton}
