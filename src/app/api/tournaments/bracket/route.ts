@@ -89,7 +89,7 @@ export async function GET(request: Request) {
     const schedule = validateSchedule(tournament.bracket_schedule);
     const matchTimes = extractMatchTimings(tournament.rules);
     const times = scheduleMatches(games.data as TournamentMatch[], schedule, {
-      simultaneousLoserR1: true,
+      interleaveW2L1: true,
       matchTimes,
     });
     return Response.json(

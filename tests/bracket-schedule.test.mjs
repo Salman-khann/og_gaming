@@ -67,9 +67,9 @@ for (const size of [2, 3, 5, 20, 128])
       const slots = Object.values(times);
       assert.equal(slots.length, 38);
       assert.equal(slots[0], '2026-11-16T15:00:00.000Z');
-      assert.equal(slots[37], '2026-12-04T18:30:00.000Z');
+      assert.equal(slots[37], '2026-12-07T15:00:00.000Z');
       const weekdays = Object.values(scheduleMatches(games, { ...config, days: [1, 2, 3, 4, 5] }));
-      assert.equal(weekdays.at(-1), '2026-12-10T18:30:00.000Z');
+      assert.equal(weekdays.at(-1), '2026-12-15T15:00:00.000Z');
       assert.ok(weekdays.every((time) => ![0, 6].includes(new Date(time).getUTCDay())));
     }
   }
