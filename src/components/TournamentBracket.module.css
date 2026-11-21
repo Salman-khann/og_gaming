@@ -295,7 +295,34 @@
   color: #ffbd82;
 }
 .lost {
-  opacity: 0.57;
+  opacity: 0.6;
+}
+.lost .teamName {
+  text-decoration: line-through;
+  text-decoration-color: rgba(239, 68, 68, 0.65);
+  color: #a1a1aa;
+}
+.eliminated {
+  opacity: 0.52;
+}
+.eliminated .teamName {
+  text-decoration: line-through;
+  text-decoration-color: #ef4444;
+  color: #71717a;
+}
+.eliminatedBadge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  color: #f87171;
+  margin-left: 6px;
+  flex-shrink: 0;
+  line-height: 1.2;
+  text-transform: uppercase;
 }
 .team.pending {
   background: linear-gradient(105deg, #222020, #171616);
@@ -1565,6 +1592,11 @@
   font-size: 11px;
   font-weight: 500;
   overflow-wrap: anywhere;
+}
+.standings li strong.eliminatedText {
+  text-decoration: line-through;
+  text-decoration-color: #ef4444;
+  color: #71717a;
 }
 .standings li > span {
   font-size: 10px;

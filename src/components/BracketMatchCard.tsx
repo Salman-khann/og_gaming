@@ -118,6 +118,7 @@ export function BracketMatchCard({
           score = side === 'a' ? m.score_a : m.score_b;
         const winner = !!id && m.winner_id === id,
           lost = !!m.winner_id && !!id && !winner,
+          eliminated = lost && (m.bracket === 'losers' || m.bracket === 'final'),
           label = id ? name(id) : placeholder(m, side);
         return (
           <div
@@ -126,6 +127,7 @@ export function BracketMatchCard({
               styles.team +
               (winner ? ' ' + styles.winner : '') +
               (lost ? ' ' + styles.lost : '') +
+              (eliminated ? ' ' + styles.eliminated : '') +
               (!id ? ' ' + styles.pending : '')
             }
           >
@@ -142,6 +144,11 @@ export function BracketMatchCard({
             <span className={styles.teamName} title={label}>
               {label}
             </span>
+            {eliminated && (
+              <span className={styles.eliminatedBadge} title="Eliminated from tournament">
+                OUT
+              </span>
+            )}
             {winner && <Check className={styles.winnerCheck} size={12} aria-label="Winner" />}
             <span className={styles.score}>{score ?? '—'}</span>
           </div>
@@ -167,8 +174,6 @@ export function BracketMatchCard({
               <div className="flex items-center gap-1">
                 {m.status !== 'completed' &&
                   !locked &&
-                  !m.source_a &&
-                  !m.source_b &&
                   (m.team_a || m.team_b) &&
                   onSwapTeam && (
                   <button

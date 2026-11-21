@@ -495,7 +495,11 @@ export function TournamentBracket({
                     const losses = teamLosses(team.id, matches);
                     return (
                       <li key={team.id}>
-                        <strong>{team.team_name}</strong>
+                        <strong
+                          className={losses >= (double ? 2 : 1) ? styles.eliminatedText : undefined}
+                        >
+                          {team.team_name}
+                        </strong>
                         <span>
                           {team.id === champion
                             ? 'Champion'

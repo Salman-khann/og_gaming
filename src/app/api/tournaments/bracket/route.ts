@@ -251,9 +251,6 @@ export async function PATCH(request: Request) {
       if (error) throw dbError(error);
 
       for (const m of matches || []) {
-        if (m.source_a || m.source_b) {
-          throw new ApiError('Teams can only be swapped in opening round matches.', 400);
-        }
         if (m.status === 'completed' || m.score_a != null || m.score_b != null) {
           throw new ApiError(
             'Cannot swap a team that is already playing or has finished a match.',
@@ -274,35 +271,45 @@ export async function PATCH(request: Request) {
           .update({
             team_a: sameMatch.team_b,
             team_b: sameMatch.team_a,
+            source_a: sameMatch.source_b,
+            source_b: sameMatch.source_a,
+            outcome_a: sameMatch.outcome_b,
+            outcome_b: sameMatch.outcome_a,
           })
           .eq('id', sameMatch.id);
         if (update.error) throw dbError(update.error);
       } else {
-        for (const m of matches || []) {
-          const updates: Record<string, string> = {};
-          if (m.team_a === teamAId) updates.team_a = teamBId;
-          else if (m.team_a === teamBId) updates.team_a = teamAId;
+        const matchA = matches?.find((m) => m.team_a === teamAId || m.team_b === teamAId);
+        const matchB = matches?.find((m) => m.team_a === teamBId || m.team_b === teamBId);
+        if (!matchA || !matchB) throw new ApiError('Both matches must be found to swap.', 404);
 
-          if (m.team_b === teamAId) updates.team_b = teamBId;
-          else if (m.team_b === teamBId) updates.team_b = teamAId;
+        const sideA = matchA.team_a === teamAId ? 'a' : 'b';
+        const sideB = matchB.team_a === teamBId ? 'a' : 'b';
 
-          if (m.status === 'bye') {
-            const nextWinner =
-              m.team_a === teamAId
-                ? teamBId
-                : m.team_a === teamBId
-                  ? teamAId
-                  : m.team_b === teamAId
-                    ? teamBId
-                    : teamAId;
-            updates.winner_id = nextWinner;
-          }
+        const updatesA: Record<string, unknown> = {};
+        const updatesB: Record<string, unknown> = {};
 
-          if (Object.keys(updates).length > 0) {
-            const update = await admin.from('tournament_matches').update(updates).eq('id', m.id);
-            if (update.error) throw dbError(update.error);
-          }
+        updatesA[`team_${sideA}`] = teamBId;
+        updatesA[`source_${sideA}`] = sideB === 'a' ? matchB.source_a : matchB.source_b;
+        updatesA[`outcome_${sideA}`] = sideB === 'a' ? matchB.outcome_a : matchB.outcome_b;
+
+        updatesB[`team_${sideB}`] = teamAId;
+        updatesB[`source_${sideB}`] = sideA === 'a' ? matchA.source_a : matchA.source_b;
+        updatesB[`outcome_${sideB}`] = sideA === 'a' ? matchA.outcome_a : matchA.outcome_b;
+
+        if (matchA.status === 'bye') {
+          updatesA.winner_id = teamBId;
         }
+        if (matchB.status === 'bye') {
+          updatesB.winner_id = teamAId;
+        }
+
+        const [resA, resB] = await Promise.all([
+          admin.from('tournament_matches').update(updatesA).eq('id', matchA.id),
+          admin.from('tournament_matches').update(updatesB).eq('id', matchB.id),
+        ]);
+        if (resA.error) throw dbError(resA.error);
+        if (resB.error) throw dbError(resB.error);
       }
 
       await admin.rpc('advance_competition', { event_id: eventId });
@@ -323,12 +330,6 @@ export async function PATCH(request: Request) {
         .eq('tournament_id', eventId)
         .single();
       if (matchError || !match) throw new ApiError('Match not found.', 404);
-      if (match.source_a || match.source_b) {
-        throw new ApiError(
-          'Teams can only be replaced in opening round matches. For later rounds, enter a walkover result.',
-          400,
-        );
-      }
       if (match.status === 'completed' || match.score_a != null || match.score_b != null) {
         throw new ApiError('Cannot replace a team in a completed or in-progress match.', 400);
       }
@@ -360,9 +361,15 @@ export async function PATCH(request: Request) {
         );
       }
 
-      const updates: Record<string, string> = {};
-      if (match.team_a === oldTeamId) updates.team_a = newTeamId;
-      if (match.team_b === oldTeamId) updates.team_b = newTeamId;
+      const updates: Record<string, unknown> = {};
+      if (match.team_a === oldTeamId) {
+        updates.team_a = newTeamId;
+        updates.source_a = null;
+      }
+      if (match.team_b === oldTeamId) {
+        updates.team_b = newTeamId;
+        updates.source_b = null;
+      }
       if (match.status === 'bye') {
         const remaining = match.team_a === oldTeamId ? match.team_b : match.team_a;
         updates.winner_id = remaining || newTeamId;
