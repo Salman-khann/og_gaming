@@ -683,6 +683,9 @@ export function TournamentBracket({
                             });
                           }}
                           onSwapTeam={(matchId) => setSwapMatchId(matchId)}
+                          isEliminated={(teamId) =>
+                            teamLosses(teamId, matches) >= (double ? 2 : 1)
+                          }
                         />
                       ))}
                     </div>

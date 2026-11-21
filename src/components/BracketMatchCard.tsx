@@ -20,6 +20,7 @@ type Props = {
   onScore: (a: number, b: number) => Promise<void>;
   onSetTiming?: (matchId: string, scheduledAt: string | null) => Promise<void>;
   onSwapTeam?: (matchId: string) => void;
+  isEliminated?: (teamId: string) => boolean;
 };
 
 export function BracketMatchCard({
@@ -37,6 +38,7 @@ export function BracketMatchCard({
   onScore,
   onSetTiming,
   onSwapTeam,
+  isEliminated,
 }: Props) {
   const [editingTiming, setEditingTiming] = useState(false);
   const initialDate = m.scheduled_at
@@ -118,7 +120,10 @@ export function BracketMatchCard({
           score = side === 'a' ? m.score_a : m.score_b;
         const winner = !!id && m.winner_id === id,
           lost = !!m.winner_id && !!id && !winner,
-          eliminated = lost && (m.bracket === 'losers' || m.bracket === 'final'),
+          eliminated =
+            lost &&
+            !!id &&
+            (isEliminated ? isEliminated(id) : m.bracket === 'losers' || m.bracket === 'final'),
           label = id ? name(id) : placeholder(m, side);
         return (
           <div

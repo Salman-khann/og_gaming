@@ -2805,8 +2805,13 @@ BEGIN
    END IF;
 
    IF a_ready AND b_ready THEN
-    new_status:=CASE WHEN a IS NULL OR b IS NULL THEN 'bye' ELSE 'pending' END;
-    new_winner:=CASE WHEN a IS NULL OR b IS NULL THEN coalesce(a,b) ELSE NULL END;
+    IF a IS NULL AND b IS NULL THEN
+     new_status:='pending';
+     new_winner:=NULL;
+    ELSE
+     new_status:=CASE WHEN a IS NULL OR b IS NULL THEN 'bye' ELSE 'pending' END;
+     new_winner:=CASE WHEN a IS NULL OR b IS NULL THEN coalesce(a,b) ELSE NULL END;
+    END IF;
    ELSE
     new_status:='pending';
     new_winner:=NULL;

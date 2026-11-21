@@ -266,22 +266,36 @@ export async function PATCH(request: Request) {
       );
 
       if (sameMatch) {
+        const updates: Record<string, unknown> = {
+          team_a: sameMatch.team_b,
+          team_b: sameMatch.team_a,
+          source_a: sameMatch.source_b,
+          source_b: sameMatch.source_a,
+          outcome_a: sameMatch.outcome_b,
+          outcome_b: sameMatch.outcome_a,
+        };
+        if (sameMatch.status === 'bye') {
+          updates.winner_id = sameMatch.team_b || sameMatch.team_a;
+        }
         const update = await admin
           .from('tournament_matches')
-          .update({
-            team_a: sameMatch.team_b,
-            team_b: sameMatch.team_a,
-            source_a: sameMatch.source_b,
-            source_b: sameMatch.source_a,
-            outcome_a: sameMatch.outcome_b,
-            outcome_b: sameMatch.outcome_a,
-          })
+          .update(updates)
           .eq('id', sameMatch.id);
         if (update.error) throw dbError(update.error);
       } else {
         const matchA = matches?.find((m) => m.team_a === teamAId || m.team_b === teamAId);
         const matchB = matches?.find((m) => m.team_a === teamBId || m.team_b === teamBId);
         if (!matchA || !matchB) throw new ApiError('Both matches must be found to swap.', 404);
+
+        if (matchA.bracket !== matchB.bracket) {
+          throw new ApiError(
+            'Teams can only be swapped within the same bracket (Winners or Losers).',
+            400,
+          );
+        }
+        if (matchA.round !== matchB.round) {
+          throw new ApiError('Teams can only be swapped within the same round.', 400);
+        }
 
         const sideA = matchA.team_a === teamAId ? 'a' : 'b';
         const sideB = matchB.team_a === teamBId ? 'a' : 'b';
@@ -330,6 +344,12 @@ export async function PATCH(request: Request) {
         .eq('tournament_id', eventId)
         .single();
       if (matchError || !match) throw new ApiError('Match not found.', 404);
+      if (match.round !== 1 || match.bracket !== 'winners' || match.source_a || match.source_b) {
+        throw new ApiError(
+          'Standby teams can only replace teams in opening round matches. For later rounds, enter a walkover result.',
+          400,
+        );
+      }
       if (match.status === 'completed' || match.score_a != null || match.score_b != null) {
         throw new ApiError('Cannot replace a team in a completed or in-progress match.', 400);
       }

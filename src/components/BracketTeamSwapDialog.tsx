@@ -50,7 +50,13 @@ export function BracketTeamSwapDialog({
     if (m.team_a) activeBracketTeamIds.add(m.team_a);
     if (m.team_b) activeBracketTeamIds.add(m.team_b);
 
-    if (m.id !== match.id) {
+    if (
+      m.id !== match.id &&
+      m.bracket === match.bracket &&
+      m.round === match.round &&
+      m.score_a == null &&
+      m.score_b == null
+    ) {
       if (m.team_a && m.team_a !== currentTeamId) {
         otherMatchTeams.push({
           id: m.team_a,
@@ -66,8 +72,15 @@ export function BracketTeamSwapDialog({
     }
   }
 
-  // Find standby teams (approved registrations not currently placed in any match)
-  const standbyTeams = teams.filter((t) => !activeBracketTeamIds.has(t.id));
+  // Standby teams can only replace teams in opening round matches
+  const isOpeningMatch =
+    match.round === 1 &&
+    match.bracket === 'winners' &&
+    !match.source_a &&
+    !match.source_b;
+  const standbyTeams = isOpeningMatch
+    ? teams.filter((t) => !activeBracketTeamIds.has(t.id))
+    : [];
 
   // Default target selection
   const defaultTarget = opponentId
@@ -79,6 +92,25 @@ export function BracketTeamSwapDialog({
         : '';
 
   const [selectedTarget, setSelectedTarget] = useState<string>(defaultTarget);
+
+  function handleSideChange(side: 'a' | 'b') {
+    setSelectedSide(side);
+    setError('');
+    const newCurrent = side === 'a' ? match.team_a : match.team_b;
+    const newOpponent = side === 'a' ? match.team_b : match.team_a;
+    if (newOpponent) {
+      setSelectedTarget(`swap:${newOpponent}`);
+    } else {
+      const other = otherMatchTeams.find((t) => t.id !== newCurrent);
+      if (other) {
+        setSelectedTarget(`swap:${other.id}`);
+      } else if (standbyTeams.length > 0) {
+        setSelectedTarget(`replace:${standbyTeams[0].id}`);
+      } else {
+        setSelectedTarget('');
+      }
+    }
+  }
 
   const targetMode = selectedTarget.startsWith('swap:') ? 'swap' : 'replace';
   const targetId = selectedTarget.replace(/^(swap|replace):/, '');
@@ -150,10 +182,7 @@ export function BracketTeamSwapDialog({
                     styles.swapSideBtn +
                     (selectedSide === 'a' ? ' ' + styles.swapSideBtnActive : '')
                   }
-                  onClick={() => {
-                    setSelectedSide('a');
-                    setError('');
-                  }}
+                  onClick={() => handleSideChange('a')}
                   disabled={busy}
                 >
                   <span className={styles.swapSideBadge}>Team A</span>
@@ -167,10 +196,7 @@ export function BracketTeamSwapDialog({
                     styles.swapSideBtn +
                     (selectedSide === 'b' ? ' ' + styles.swapSideBtnActive : '')
                   }
-                  onClick={() => {
-                    setSelectedSide('b');
-                    setError('');
-                  }}
+                  onClick={() => handleSideChange('b')}
                   disabled={busy}
                 >
                   <span className={styles.swapSideBadge}>Team B</span>
